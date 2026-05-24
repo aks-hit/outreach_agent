@@ -1,0 +1,111 @@
+{
+    "queue": [
+        {
+            "type": "city",
+            "name": "Bengaluru",
+            "country": "India"
+        },
+        {
+            "type": "city",
+            "name": "Hyderabad",
+            "country": "India"
+        },
+        {
+            "type": "city",
+            "name": "Gurgaon",
+            "country": "India"
+        },
+        {
+            "type": "city",
+            "name": "Pune",
+            "country": "India"
+        },
+        {
+            "type": "yc_batch",
+            "name": "YC Winter 2024"
+        },
+        {
+            "type": "yc_batch",
+            "name": "YC Summer 2023"
+        },
+        {
+            "type": "yc_batch",
+            "name": "YC Winter 2023"
+        },
+        {
+            "type": "yc_batch",
+            "name": "YC Summer 2022"
+        },
+        {
+            "type": "yc_batch",
+            "name": "YC Winter 2022"
+        },
+        {
+            "type": "city",
+            "name": "San Francisco / Silicon Valley",
+            "country": "USA"
+        },
+        {
+            "type": "city",
+            "name": "New York",
+            "country": "USA"
+        },
+        {
+            "type": "city",
+            "name": "London",
+            "country": "UK"
+        },
+        {
+            "type": "city",
+            "name": "Berlin",
+            "country": "Germany"
+        },
+        {
+            "type": "city",
+            "name": "Paris",
+            "country": "France"
+        },
+        {
+            "type": "city",
+            "name": "Singapore",
+            "country": "Singapore"
+        },
+        {
+            "type": "city",
+            "name": "Toronto",
+            "country": "Canada"
+        }
+    ],
+    "current_index": 6,
+    "completed": [
+        {
+            "type": "city",
+            "name": "Bengaluru",
+            "country": "India"
+        },
+        {
+            "type": "city",
+            "name": "Hyderabad",
+            "country": "India"
+        },
+        {
+            "type": "city",
+            "name": "Gurgaon",
+            "country": "India"
+        },
+        {
+            "type": "city",
+            "name": "Pune",
+            "country": "India"
+        },
+        {
+            "type": "yc_batch",
+            "name": "YC Winter 2024"
+        },
+        {
+            "type": "yc_batch",
+            "name": "YC Summer 2023"
+        }
+    ],
+    "last_run": "2026-05-25"
+}
