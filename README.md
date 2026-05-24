@@ -37,7 +37,18 @@
 2. Create a folder named `.creds` in the root directory.
 3. Place `credentials.json` inside the `.creds` folder.
 
-### 3. Installation
+### 3. Setup Google Sheets
+The agent acts as a headless CRM using Google Sheets.
+1. Create a new, blank Google Sheet.
+2. Create two tabs (worksheets) named exactly:
+   - **Company Tracker**
+   - **Outreach Tracker**
+3. Import the provided templates into each tab respectively:
+   - File -> Import -> Upload `template_company_tracker.csv`
+   - File -> Import -> Upload `template_outreach_tracker.csv`
+4. Copy the Sheet ID from the URL (the part between `/d/` and `/edit`).
+
+### 4. Installation
 ```bash
 git clone https://github.com/YourUsername/outreach_agent.git
 cd outreach_agent
