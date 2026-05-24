@@ -24,16 +24,14 @@ COMPANY_SHEET = "Company Tracker"
 OUTREACH_SHEET = "Outreach Tracker"
 
 # Column indices (1-based) for Company Tracker
-COL_COMPANY_NAME = 2
-COL_COMPANY_TIER = 3
-COL_COMPANY_HQ = 4
-COL_COMPANY_WHY = 5
-COL_COMPANY_PRIORITY = 8
-COL_COMPANY_STATUS = 9
-COL_COMPANY_PEOPLE = (
-    10  # "People Found" — paste contacts here as "Name|email|role|confidence\n..."
-)
-COL_COMPANY_EMAILS_SENT = 11
+COL_COMPANY_NAME = 2          # B
+COL_COMPANY_TIER = 3          # C
+COL_COMPANY_HQ = 4            # D
+COL_COMPANY_WHY = 5           # E
+COL_COMPANY_PRIORITY = 8      # H
+COL_COMPANY_STATUS = 9        # I
+COL_COMPANY_PEOPLE = 11       # K
+COL_COMPANY_EMAILS_SENT = 12  # L
 
 # Column indices for Outreach Tracker
 # A:R = original columns, S-W = new v2 columns
@@ -181,7 +179,7 @@ class SheetManager:
 
     def get_company_rows(self) -> list[dict]:
         # Open-ended range — scales to any number of companies
-        data = self._read(f"'{COMPANY_SHEET}'!A5:K")
+        data = self._read(f"'{COMPANY_SHEET}'!A5:M")
         rows = []
         for i, row in enumerate(data):
 
@@ -204,7 +202,7 @@ class SheetManager:
         return [r for r in rows if r["Company"]]
 
     def get_outreach_rows(self) -> list[dict]:
-        # Open-ended range — reads all columns including new v2 columns
+        # Open-ended range — reads all columns
         data = self._read(f"'{OUTREACH_SHEET}'!A5:W")
         rows = []
         for i, row in enumerate(data):
@@ -279,18 +277,18 @@ class SheetManager:
         log.info(f"Follow-up marked sent on row {row_index}")
 
     def update_company_emails_sent(self, row_index: int):
-        data = self._read(f"'{COMPANY_SHEET}'!K{row_index}")
+        data = self._read(f"'{COMPANY_SHEET}'!L{row_index}")
         current = 0
         if data and data[0]:
             try:
                 current = int(data[0][0])
             except ValueError:
                 current = 0
-        self._write(f"'{COMPANY_SHEET}'!K{row_index}", [[current + 1]])
+        self._write(f"'{COMPANY_SHEET}'!L{row_index}", [[current + 1]])
 
     def update_people_found(self, row_index: int, contacts_text: str):
-        """Write auto-discovered contacts to column J ("People Found") of Company Tracker."""
-        self._write(f"'{COMPANY_SHEET}'!J{row_index}", [[contacts_text]])
+        """Write auto-discovered contacts to column K ("People Found") of Company Tracker."""
+        self._write(f"'{COMPANY_SHEET}'!K{row_index}", [[contacts_text]])
         log.info(f"People Found written to row {row_index} in {COMPANY_SHEET}")
 
     def update_opened(self, email: str):

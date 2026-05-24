@@ -40,12 +40,8 @@
 ### 3. Setup Google Sheets
 The agent acts as a headless CRM using Google Sheets.
 1. Create a new, blank Google Sheet.
-2. Create two tabs (worksheets) named exactly:
-   - **Company Tracker**
-   - **Outreach Tracker**
-3. Import the provided templates into each tab respectively:
-   - File -> Import -> Upload `template_company_tracker.csv`
-   - File -> Import -> Upload `template_outreach_tracker.csv`
+2. Go to **File -> Import -> Upload** and select `job_search_tracker.xlsx` from this repository.
+3. Choose "Replace spreadsheet" and click Import.
 4. Copy the Sheet ID from the URL (the part between `/d/` and `/edit`).
 
 ### 4. Installation
