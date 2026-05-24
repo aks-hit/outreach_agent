@@ -363,8 +363,17 @@ class OutreachAgent:
         daily_limit = get_daily_limit()
         log.info(f"=== Daily run: {today} | Send limit: {daily_limit} ===")
 
-        # AUTO 0: Generate new leads automatically before processing
-        self._generate_leads()
+        # AUTO 0: Check backlog before generating new leads
+        companies = self.sheets.get_company_rows()
+        backlog = [
+            c for c in companies 
+            if not c.get("People Found", "").strip() and c.get("Company", "").strip()
+        ]
+        
+        if len(backlog) > 20:
+            log.info(f"Skipping lead generation. Backlog is full ({len(backlog)} companies need contacts).")
+        else:
+            self._generate_leads()
 
         # AUTO 1: Sync replies and classify them
         self._sync_replies()
