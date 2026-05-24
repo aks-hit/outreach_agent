@@ -44,13 +44,18 @@ cd outreach_agent
 pip install -r requirements.txt
 ```
 
-### 4. Environment Variables
-Copy the template and fill in your details:
+### 4. Environment Variables & Profile
+Copy the environment template and fill in your details:
 ```bash
 cp .env.example .env
 ```
 Inside `.env`, provide your Google Sheet ID, Gmail address, Gemini API Key, and set your desired `EMAILS_PER_DAY`.
 
+Next, define your professional background for the AI to use:
+```bash
+cp profile.txt.example profile.txt
+```
+Open `profile.txt` and replace the contents with your own experience and target roles. Gemini will read this file to personalize every email it drafts.
 ### 5. First Run & Authentication
 Run the agent manually the first time. A browser window will pop up asking you to authenticate your Gmail account.
 ```bash

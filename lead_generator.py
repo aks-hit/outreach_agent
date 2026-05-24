@@ -34,21 +34,16 @@ log = logging.getLogger(__name__)
 # ── Config ────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
-YOUR_NAME = os.environ.get("YOUR_NAME", "Akshit Singh")
+YOUR_NAME = os.environ.get("YOUR_NAME", "[Your Name]")
 
-PROFILE_SUMMARY = """
-Junior AI Engineer who has already shipped production LLM, RAG, agentic AI, speech, and document intelligence systems.
-
-At Relay Human Cloud India (11+ months):
-- Built agentic AI and RAG pipelines on Azure AI Foundry, PromptFlow, FastAPI
-- Reduced LLM inference latency by 70-80%
-- Cut document processing effort by 75%
-- Cut research time by 60%
-
-Tech: LangGraph, LangChain, AutoGen, RAG, MCP, Azure AI, GCP, FastAPI, Python
-Credential: GATE DA 2025 — top 9%
-Targeting: AI Engineer / LLM Engineer / Applied AI roles
-"""
+# Read profile summary from file
+profile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profile.txt")
+try:
+    with open(profile_path, "r", encoding="utf-8") as f:
+        PROFILE_SUMMARY = f.read().strip()
+except FileNotFoundError:
+    log.warning(f"{profile_path} not found! Please create it from profile.txt.example.")
+    PROFILE_SUMMARY = "Software Engineer looking for roles."
 
 # Default target hubs queue
 DEFAULT_QUEUE = [

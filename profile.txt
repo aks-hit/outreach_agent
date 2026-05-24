@@ -1,0 +1,11 @@
+Junior AI Engineer who has already shipped production LLM, RAG, agentic AI, speech, and document intelligence systems.
+
+At Relay Human Cloud India (11+ months):
+- Built agentic AI and RAG pipelines on Azure AI Foundry, PromptFlow, FastAPI
+- Reduced LLM inference latency by 70-80%
+- Cut document processing effort by 75%
+- Cut research time by 60%
+
+Tech: LangGraph, LangChain, AutoGen, RAG, MCP, Azure AI, GCP, FastAPI, Python
+Credential: GATE DA 2025 — top 9%
+Targeting: AI Engineer / LLM Engineer / Applied AI roles
