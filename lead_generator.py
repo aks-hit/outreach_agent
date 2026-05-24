@@ -1,12 +1,13 @@
 """
 lead_generator.py — Autonomous Lead Generation Agent
-Runs daily or on-demand: discovers notable tech startups and AI companies in 
-target locations (Bengaluru, Hyderabad, Gurgaon, Pune, and globally via Y Combinator 
-batches and global tech hubs), tailors "Why Target" pitches, and appends them 
+Runs daily or on-demand: discovers notable tech startups and AI companies in
+target locations (Bengaluru, Hyderabad, Gurgaon, Pune, and globally via Y Combinator
+batches and global tech hubs), tailors "Why Target" pitches, and appends them
 to the "Company Tracker" Google Sheet.
 """
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import os
@@ -18,23 +19,22 @@ from datetime import datetime
 from google import genai
 from sheets import SheetManager
 
+
 class QuotaExhaustedError(Exception):
     pass
+
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("lead_generator.log"),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.FileHandler("lead_generator.log"), logging.StreamHandler()],
 )
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
-YOUR_NAME      = os.environ.get("YOUR_NAME", "Akshit Singh")
+YOUR_NAME = os.environ.get("YOUR_NAME", "Akshit Singh")
 
 PROFILE_SUMMARY = """
 Junior AI Engineer who has already shipped production LLM, RAG, agentic AI, speech, and document intelligence systems.
@@ -67,7 +67,7 @@ DEFAULT_QUEUE = [
     {"type": "city", "name": "Berlin", "country": "Germany"},
     {"type": "city", "name": "Paris", "country": "France"},
     {"type": "city", "name": "Singapore", "country": "Singapore"},
-    {"type": "city", "name": "Toronto", "country": "Canada"}
+    {"type": "city", "name": "Toronto", "country": "Canada"},
 ]
 
 # ── Gemini setup ──────────────────────────────────────────────────────────────
@@ -87,22 +87,31 @@ def gemini(prompt: str, retries=4) -> str:
             return response.text.strip()
         except Exception as e:
             err_str = str(e).lower()
-            is_rate_limit = any(x in err_str for x in ["429", "resource_exhausted", "quota exceeded", "rate limit"])
-            
+            is_rate_limit = any(
+                x in err_str
+                for x in ["429", "resource_exhausted", "quota exceeded", "rate limit"]
+            )
+
             if is_rate_limit and "quota exceeded" in err_str and "requests" in err_str:
                 raise QuotaExhaustedError(f"Daily Gemini Quota Exhausted: {e}")
 
             if attempt < retries - 1:
                 if is_rate_limit:
                     sleep_time = 20 * (attempt + 1)
-                    log.warning(f"Gemini rate limit hit in LeadGen. Retrying in {sleep_time}s... Error: {e}")
+                    log.warning(
+                        f"Gemini rate limit hit in LeadGen. Retrying in {sleep_time}s... Error: {e}"
+                    )
                     time.sleep(sleep_time)
                 else:
                     sleep_time = 5 * (attempt + 1)
-                    log.warning(f"Gemini error in LeadGen. Retrying in {sleep_time}s... Error: {e}")
+                    log.warning(
+                        f"Gemini error in LeadGen. Retrying in {sleep_time}s... Error: {e}"
+                    )
                     time.sleep(sleep_time)
             else:
-                log.error(f"Gemini call failed permanently in LeadGen after {retries} attempts: {e}")
+                log.error(
+                    f"Gemini call failed permanently in LeadGen after {retries} attempts: {e}"
+                )
                 if is_rate_limit:
                     raise QuotaExhaustedError(f"Gemini Rate Limit Exhausted: {e}")
                 raise
@@ -122,13 +131,13 @@ class LeadGeneratorAgent:
                     return json.load(f)
             except Exception as e:
                 log.warning(f"Failed to read state file: {e}. Starting fresh.")
-        
+
         # Initial fresh state
         return {
             "queue": DEFAULT_QUEUE,
             "current_index": 0,
             "completed": [],
-            "last_run": None
+            "last_run": None,
         }
 
     def _save_state(self):
@@ -140,41 +149,49 @@ class LeadGeneratorAgent:
 
     def run_daily_generation(self):
         log.info("=== Autonomous Lead Generation Run Started ===")
-        
+
         queue = self.state.get("queue", DEFAULT_QUEUE)
         idx = self.state.get("current_index", 0)
-        
+
         if idx >= len(queue):
-            log.info("Finished all target regions in the queue! Wrapping around to restart queue.")
+            log.info(
+                "Finished all target regions in the queue! Wrapping around to restart queue."
+            )
             idx = 0
             self.state["current_index"] = 0
-            
+
         target = queue[idx]
         log.info(f"Targeting: {target['type'].upper()} -> {target['name']}")
-        
+
         # Step 1: Query Gemini to discover notable tech/AI companies in this target
         companies = self._discover_companies(target)
         log.info(f"Gemini suggested {len(companies)} companies in this category.")
-        
+
         if not companies:
-            log.warning("No companies retrieved. Moving to the next target in the queue.")
+            log.warning(
+                "No companies retrieved. Moving to the next target in the queue."
+            )
             self.state["current_index"] = idx + 1
             self._save_state()
             return
 
         # Step 2: Read existing companies in Google Sheet to avoid duplicates
         existing_companies = self.sheets.get_company_rows()
-        existing_names = {c["Company"].lower().strip() for c in existing_companies if c.get("Company")}
-        
+        existing_names = {
+            c["Company"].lower().strip() for c in existing_companies if c.get("Company")
+        }
+
         # Step 3: Filter and Append new companies
         added_count = 0
         for company_data in companies:
             name = company_data.get("company", "").strip()
             if not name:
                 continue
-            
+
             if name.lower().strip() in existing_names:
-                log.info(f"Company '{name}' already exists in the sheets tracker. Skipping.")
+                log.info(
+                    f"Company '{name}' already exists in the sheets tracker. Skipping."
+                )
                 continue
 
             try:
@@ -186,7 +203,7 @@ class LeadGeneratorAgent:
                 # Let's append directly to the sheet range A:K.
                 # Columns mapping:
                 # B: Company, C: Tier, D: HQ, E: Why Target, F: Priority (e.g. Medium), G: Status (e.g. Dream), H: '0' (People Found), I: 0 (Emails Sent)
-                
+
                 # Wait, SheetManager has no append_company_row method, it only has update_people_found and get_company_rows.
                 # Let's check how Sheets B:K is structured.
                 # Let's check the columns using read_sheet logs.
@@ -199,14 +216,16 @@ class LeadGeneratorAgent:
                 added_count += 1
             except Exception as e:
                 log.error(f"Failed to append company '{name}' to sheet: {e}")
-                
+
         # Step 4: Advance the queue
         self.state["current_index"] = idx + 1
         self.state["completed"].append(target)
         self.state["last_run"] = datetime.now().date().isoformat()
         self._save_state()
-        
-        log.info(f"=== Autonomous Lead Generation Complete: Added {added_count} new startups ===")
+
+        log.info(
+            f"=== Autonomous Lead Generation Complete: Added {added_count} new startups ==="
+        )
 
     def _discover_companies(self, target: dict) -> list[dict]:
         """Ask Gemini for 10-15 real active startups/companies in target."""
@@ -244,7 +263,7 @@ Format:
   {{"company": "ExampleName", "tier": "Tier 1", "hq": "HQ Location", "why_target": "Personalized reason targeting their specific AI needs..."}}
 ]
 """
-        
+
         raw = gemini(prompt)
         # Strip markdown wrappers if any
         if raw.startswith("```"):
@@ -254,7 +273,7 @@ Format:
             if lines[-1].strip() == "```":
                 lines = lines[:-1]
             raw = "\n".join(lines).strip()
-            
+
         try:
             return json.loads(raw)
         except Exception as e:
@@ -267,7 +286,7 @@ Format:
         # Get the next index number
         existing = self.sheets.get_company_rows()
         next_num = len(existing) + 1
-        
+
         # B: Company, C: Tier, D: HQ, E: Why Target, H: Priority, I: Status, J: People Found ('0'), K: Emails Sent (0)
         # In sheets.py, get_company_rows reads columns B to K:
         # COL_COMPANY_NAME       = 2 (B)
@@ -278,22 +297,22 @@ Format:
         # COL_COMPANY_STATUS     = 9 (I)
         # COL_COMPANY_PEOPLE     = 10 (J)
         # COL_COMPANY_EMAILS_SENT= 11 (K)
-        
+
         # Assemble values array matching columns A to K:
         row = [
-            next_num,                             # Col A (#)
-            c.get("company", "").strip(),         # Col B (Company)
-            c.get("tier", "Tier 2").strip(),      # Col C (Tier)
-            c.get("hq", "Unknown").strip(),       # Col D (HQ)
-            c.get("why_target", "").strip(),      # Col E (Why Target)
-            "",                                   # Col F (placeholder)
-            "",                                   # Col G (placeholder)
-            "Medium",                             # Col H (Priority)
-            "Dream",                              # Col I (Status)
-            "0",                                  # Col J (People Found - '0' is crucial!)
-            "0"                                   # Col K (Emails Sent)
+            next_num,  # Col A (#)
+            c.get("company", "").strip(),  # Col B (Company)
+            c.get("tier", "Tier 2").strip(),  # Col C (Tier)
+            c.get("hq", "Unknown").strip(),  # Col D (HQ)
+            c.get("why_target", "").strip(),  # Col E (Why Target)
+            "",  # Col F (placeholder)
+            "",  # Col G (placeholder)
+            "Medium",  # Col H (Priority)
+            "Dream",  # Col I (Status)
+            "0",  # Col J (People Found - '0' is crucial!)
+            "0",  # Col K (Emails Sent)
         ]
-        
+
         # Append to Google Sheet 'Company Tracker'
         self.sheets._append("'Company Tracker'!A:K", [row])
 

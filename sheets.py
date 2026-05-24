@@ -20,31 +20,47 @@ SCOPES = [
 ]
 
 # Sheet tab names — must match your actual Google Sheet
-COMPANY_SHEET  = "Company Tracker"
+COMPANY_SHEET = "Company Tracker"
 OUTREACH_SHEET = "Outreach Tracker"
 
 # Column indices (1-based) for Company Tracker
-COL_COMPANY_NAME       = 2
-COL_COMPANY_TIER       = 3
-COL_COMPANY_HQ         = 4
-COL_COMPANY_WHY        = 5
-COL_COMPANY_PRIORITY   = 8
-COL_COMPANY_STATUS     = 9
-COL_COMPANY_PEOPLE     = 10   # "People Found" — paste contacts here as "Name|email|role|confidence\n..."
-COL_COMPANY_EMAILS_SENT= 11
+COL_COMPANY_NAME = 2
+COL_COMPANY_TIER = 3
+COL_COMPANY_HQ = 4
+COL_COMPANY_WHY = 5
+COL_COMPANY_PRIORITY = 8
+COL_COMPANY_STATUS = 9
+COL_COMPANY_PEOPLE = (
+    10  # "People Found" — paste contacts here as "Name|email|role|confidence\n..."
+)
+COL_COMPANY_EMAILS_SENT = 11
 
 # Column indices for Outreach Tracker
 # A:R = original columns, S-W = new v2 columns
 OUTREACH_COLS = [
-    "#", "First Name", "Last Name", "Company", "Role / Title", "LinkedIn URL",
-    "Email", "Email Source", "Hook (one-liner)", "Status", "Date Sent",
-    "Days Since Sent", "Opened?", "Replied?", "Follow-up Sent?", "Outcome", "Notes",
-    "Subject",        # col R (index 17) — internal use for follow-ups
-    "Reply Type",     # col S (index 18) — positive/rejection/referral/etc.
-    "Suggested Reply", # col T (index 19) — agent-drafted, NOT auto-sent
-    "Thread ID",      # col U (index 20) — Gmail message ID
-    "Lead Score",     # col V (index 21) — numeric score
-    "Do Not Contact", # col W (index 22) — Yes/No
+    "#",
+    "First Name",
+    "Last Name",
+    "Company",
+    "Role / Title",
+    "LinkedIn URL",
+    "Email",
+    "Email Source",
+    "Hook (one-liner)",
+    "Status",
+    "Date Sent",
+    "Days Since Sent",
+    "Opened?",
+    "Replied?",
+    "Follow-up Sent?",
+    "Outcome",
+    "Notes",
+    "Subject",  # col R (index 17) — internal use for follow-ups
+    "Reply Type",  # col S (index 18) — positive/rejection/referral/etc.
+    "Suggested Reply",  # col T (index 19) — agent-drafted, NOT auto-sent
+    "Thread ID",  # col U (index 20) — Gmail message ID
+    "Lead Score",  # col V (index 21) — numeric score
+    "Do Not Contact",  # col W (index 22) — Yes/No
 ]
 COL_SUBJECT_IDX = 17
 
@@ -57,19 +73,19 @@ def get_creds():
     crashing the process.
     """
     creds = None
-    
+
     # Use absolute paths so cron jobs don't fail
     base_dir = os.path.dirname(os.path.abspath(__file__))
     creds_dir = os.path.join(base_dir, ".creds")
     os.makedirs(creds_dir, exist_ok=True)
-    
+
     token_path = os.path.join(creds_dir, "token.pickle")
     creds_path = os.path.join(creds_dir, "credentials.json")
-    
+
     if os.path.exists(token_path):
         with open(token_path, "rb") as f:
             creds = pickle.load(f)
-            
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             try:
@@ -77,11 +93,13 @@ def get_creds():
             except Exception as e:
                 log.warning(f"Token refresh failed ({e}). Re-running OAuth flow...")
                 creds = None
-                
+
         if not creds or not creds.valid:
             if not os.path.exists(creds_path):
-                raise FileNotFoundError(f"Missing {creds_path}. Please place your Google OAuth credentials.json inside the .creds folder.")
-                
+                raise FileNotFoundError(
+                    f"Missing {creds_path}. Please place your Google OAuth credentials.json inside the .creds folder."
+                )
+
             if "PYTHONANYWHERE_SITE" in os.environ:
                 raise RuntimeError(
                     "Headless environment detected (PythonAnywhere). "
@@ -89,13 +107,13 @@ def get_creds():
                     "Fix: Run this script once on your laptop to generate '.creds/token.pickle', "
                     "then upload that token.pickle file to PythonAnywhere!"
                 )
-                
+
             flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
             creds = flow.run_local_server(port=0)
-            
+
         with open(token_path, "wb") as f:
             pickle.dump(creds, f)
-            
+
     return creds
 
 
@@ -126,10 +144,11 @@ class SheetManager:
 
     def _read(self, range_: str):
         try:
-            result = self.sheet.values().get(
-                spreadsheetId=self.spreadsheet_id,
-                range=range_
-            ).execute()
+            result = (
+                self.sheet.values()
+                .get(spreadsheetId=self.spreadsheet_id, range=range_)
+                .execute()
+            )
             return result.get("values", [])
         except Exception as e:
             self._handle_error(e)
@@ -141,7 +160,7 @@ class SheetManager:
                 spreadsheetId=self.spreadsheet_id,
                 range=range_,
                 valueInputOption="USER_ENTERED",
-                body={"values": values}
+                body={"values": values},
             ).execute()
         except Exception as e:
             self._handle_error(e)
@@ -154,7 +173,7 @@ class SheetManager:
                 range=range_,
                 valueInputOption="USER_ENTERED",
                 insertDataOption="INSERT_ROWS",
-                body={"values": values}
+                body={"values": values},
             ).execute()
         except Exception as e:
             self._handle_error(e)
@@ -165,19 +184,23 @@ class SheetManager:
         data = self._read(f"'{COMPANY_SHEET}'!A5:K")
         rows = []
         for i, row in enumerate(data):
+
             def g(idx, default="", r=row):
                 return r[idx].strip() if len(r) > idx else default
-            rows.append({
-                "_row_index": i + 5,  # actual sheet row number
-                "Company":      g(COL_COMPANY_NAME - 1),
-                "Tier":         g(COL_COMPANY_TIER - 1),
-                "HQ":           g(COL_COMPANY_HQ - 1),
-                "Why Target":   g(COL_COMPANY_WHY - 1),
-                "Priority":     g(COL_COMPANY_PRIORITY - 1),
-                "Status":       g(COL_COMPANY_STATUS - 1),
-                "People Found": g(COL_COMPANY_PEOPLE - 1),
-                "Emails Sent":  g(COL_COMPANY_EMAILS_SENT - 1, "0"),
-            })
+
+            rows.append(
+                {
+                    "_row_index": i + 5,  # actual sheet row number
+                    "Company": g(COL_COMPANY_NAME - 1),
+                    "Tier": g(COL_COMPANY_TIER - 1),
+                    "HQ": g(COL_COMPANY_HQ - 1),
+                    "Why Target": g(COL_COMPANY_WHY - 1),
+                    "Priority": g(COL_COMPANY_PRIORITY - 1),
+                    "Status": g(COL_COMPANY_STATUS - 1),
+                    "People Found": g(COL_COMPANY_PEOPLE - 1),
+                    "Emails Sent": g(COL_COMPANY_EMAILS_SENT - 1, "0"),
+                }
+            )
         return [r for r in rows if r["Company"]]
 
     def get_outreach_rows(self) -> list[dict]:
@@ -185,32 +208,36 @@ class SheetManager:
         data = self._read(f"'{OUTREACH_SHEET}'!A5:W")
         rows = []
         for i, row in enumerate(data):
+
             def g(idx, default="", r=row):
                 return r[idx].strip() if len(r) > idx else default
-            rows.append({
-                "_row_index":      i + 5,
-                "First Name":      g(1),
-                "Last Name":       g(2),
-                "Company":         g(3),
-                "Role / Title":    g(4),
-                "LinkedIn URL":    g(5),
-                "Email":           g(6),
-                "Email Source":    g(7),
-                "Hook":            g(8),
-                "Status":          g(9),
-                "Date Sent":       g(10),
-                "Opened?":         g(12),
-                "Replied?":        g(13),
-                "Follow-up Sent?": g(14),
-                "Outcome":         g(15),
-                "Notes":           g(16),
-                "Subject":         g(17),
-                "Reply Type":      g(18),
-                "Suggested Reply": g(19),
-                "Thread ID":       g(20),
-                "Lead Score":      g(21),
-                "Do Not Contact":  g(22),
-            })
+
+            rows.append(
+                {
+                    "_row_index": i + 5,
+                    "First Name": g(1),
+                    "Last Name": g(2),
+                    "Company": g(3),
+                    "Role / Title": g(4),
+                    "LinkedIn URL": g(5),
+                    "Email": g(6),
+                    "Email Source": g(7),
+                    "Hook": g(8),
+                    "Status": g(9),
+                    "Date Sent": g(10),
+                    "Opened?": g(12),
+                    "Replied?": g(13),
+                    "Follow-up Sent?": g(14),
+                    "Outcome": g(15),
+                    "Notes": g(16),
+                    "Subject": g(17),
+                    "Reply Type": g(18),
+                    "Suggested Reply": g(19),
+                    "Thread ID": g(20),
+                    "Lead Score": g(21),
+                    "Do Not Contact": g(22),
+                }
+            )
         return [r for r in rows if r["First Name"]]
 
     def append_outreach_row(self, data: dict):
@@ -235,15 +262,17 @@ class SheetManager:
             data.get("Follow-up Sent?", "No"),
             data.get("Outcome", "Awaiting reply"),
             data.get("Notes", ""),
-            data.get("Subject", ""),           # col R
-            data.get("Reply Type", ""),        # col S
-            data.get("Suggested Reply", ""),   # col T
-            data.get("Thread ID", ""),         # col U
-            data.get("Lead Score", ""),        # col V
+            data.get("Subject", ""),  # col R
+            data.get("Reply Type", ""),  # col S
+            data.get("Suggested Reply", ""),  # col T
+            data.get("Thread ID", ""),  # col U
+            data.get("Lead Score", ""),  # col V
             data.get("Do Not Contact", "No"),  # col W
         ]
         self._append(f"'{OUTREACH_SHEET}'!A:W", [row])
-        log.info(f"Sheet row appended: {data.get('First Name')} @ {data.get('Company')}")
+        log.info(
+            f"Sheet row appended: {data.get('First Name')} @ {data.get('Company')}"
+        )
 
     def update_followup_sent(self, row_index: int, today: str):
         self._write(f"'{OUTREACH_SHEET}'!O{row_index}", [["Yes"]])
@@ -283,7 +312,9 @@ class SheetManager:
                 log.info(f"Marked replied: {email}")
                 break
 
-    def update_reply_classification(self, email: str, reply_type: str, suggested_reply: str):
+    def update_reply_classification(
+        self, email: str, reply_type: str, suggested_reply: str
+    ):
         """
         Write reply classification and suggested response to the sheet.
         Does NOT auto-send — just saves it for manual review.
@@ -292,7 +323,9 @@ class SheetManager:
         for r in rows:
             if r["Email"].lower() == email.lower() and r["Replied?"] == "Yes":
                 self._write(f"'{OUTREACH_SHEET}'!S{r['_row_index']}", [[reply_type]])
-                self._write(f"'{OUTREACH_SHEET}'!T{r['_row_index']}", [[suggested_reply]])
+                self._write(
+                    f"'{OUTREACH_SHEET}'!T{r['_row_index']}", [[suggested_reply]]
+                )
                 # Mark as Do Not Contact if they asked
                 if reply_type in ("do_not_contact", "rejection"):
                     self._write(f"'{OUTREACH_SHEET}'!W{r['_row_index']}", [["Yes"]])

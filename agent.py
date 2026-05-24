@@ -5,6 +5,7 @@ generates personalized emails (single Gemini call), sends them, and updates the 
 """
 
 from dotenv import load_dotenv
+
 load_dotenv()
 import os
 import time
@@ -19,30 +20,29 @@ from mailer import GmailSender
 from contact_finder import ContactFinder
 from lead_generator import LeadGeneratorAgent
 
+
 class QuotaExhaustedError(Exception):
     pass
+
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("agent.log"),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.FileHandler("agent.log"), logging.StreamHandler()],
 )
 log = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-GEMINI_API_KEY      = os.environ["GEMINI_API_KEY"]
-SPREADSHEET_ID      = os.environ["SPREADSHEET_ID"]
-YOUR_NAME           = os.environ.get("YOUR_NAME", "Akshit Singh")
-YOUR_LINKEDIN       = os.environ.get("YOUR_LINKEDIN", "linkedin.com/in/akshitsingh-007")
-EMAILS_PER_DAY      = int(os.environ.get("EMAILS_PER_DAY", "10"))
-FOLLOW_UP_DAYS      = int(os.environ.get("FOLLOW_UP_DAYS", "5"))
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
+YOUR_NAME = os.environ.get("YOUR_NAME", "Akshit Singh")
+YOUR_LINKEDIN = os.environ.get("YOUR_LINKEDIN", "linkedin.com/in/akshitsingh-007")
+EMAILS_PER_DAY = int(os.environ.get("EMAILS_PER_DAY", "10"))
+FOLLOW_UP_DAYS = int(os.environ.get("FOLLOW_UP_DAYS", "5"))
 HUNTER_MAX_SEARCHES = int(os.environ.get("HUNTER_MAX_SEARCHES", "100"))
-MIN_LEAD_SCORE      = int(os.environ.get("MIN_LEAD_SCORE", "6"))
+MIN_LEAD_SCORE = int(os.environ.get("MIN_LEAD_SCORE", "6"))
 CAMPAIGN_START_DATE = os.environ.get("CAMPAIGN_START_DATE", date.today().isoformat())
-YOUR_RESUME         = os.environ.get("YOUR_RESUME", "https://your-resume-link-here.com")
+YOUR_RESUME = os.environ.get("YOUR_RESUME", "https://your-resume-link-here.com")
 
 PROFILE_SUMMARY = """
 Junior AI Engineer who has already shipped production LLM, RAG, agentic AI, speech, and document intelligence systems.
@@ -74,7 +74,10 @@ def gemini(prompt: str, retries=4) -> str:
             return response.text.strip()
         except Exception as e:
             err_str = str(e).lower()
-            is_rate_limit = any(x in err_str for x in ["429", "resource_exhausted", "quota exceeded", "rate limit"])
+            is_rate_limit = any(
+                x in err_str
+                for x in ["429", "resource_exhausted", "quota exceeded", "rate limit"]
+            )
 
             if is_rate_limit and "quota exceeded" in err_str and "requests" in err_str:
                 raise QuotaExhaustedError(f"Daily Gemini Quota Exhausted: {e}")
@@ -86,10 +89,14 @@ def gemini(prompt: str, retries=4) -> str:
                     time.sleep(sleep_time)
                 else:
                     sleep_time = 5 * (attempt + 1)
-                    log.warning(f"Gemini error. Retrying in {sleep_time}s... Error: {e}")
+                    log.warning(
+                        f"Gemini error. Retrying in {sleep_time}s... Error: {e}"
+                    )
                     time.sleep(sleep_time)
             else:
-                log.error(f"Gemini call failed permanently after {retries} attempts: {e}")
+                log.error(
+                    f"Gemini call failed permanently after {retries} attempts: {e}"
+                )
                 if is_rate_limit:
                     raise QuotaExhaustedError(f"Gemini Rate Limit Exhausted: {e}")
                 raise
@@ -118,25 +125,50 @@ def get_daily_limit() -> int:
         start = date.today()
     days_active = (date.today() - start).days
     if days_active < 7:
-        return 10    # Week 1: warm up
+        return 10  # Week 1: warm up
     elif days_active < 21:
-        return 25    # Week 2-3: ramp
+        return 25  # Week 2-3: ramp
     else:
-        return 50    # Week 4+: cruise
+        return 50  # Week 4+: cruise
 
 
 # ── Lead scoring (local, no Gemini call) ─────────────────────────────────────
 AI_KEYWORDS = [
-    "ai", "artificial intelligence", "machine learning", "ml", "llm",
-    "deep learning", "nlp", "natural language", "computer vision",
-    "rag", "generative", "gpt", "transformer", "neural", "data science",
-    "langchain", "agent", "agentic",
+    "ai",
+    "artificial intelligence",
+    "machine learning",
+    "ml",
+    "llm",
+    "deep learning",
+    "nlp",
+    "natural language",
+    "computer vision",
+    "rag",
+    "generative",
+    "gpt",
+    "transformer",
+    "neural",
+    "data science",
+    "langchain",
+    "agent",
+    "agentic",
 ]
 
 TARGET_CITIES = [
-    "bengaluru", "bangalore", "hyderabad", "gurgaon", "gurugram", "pune",
-    "san francisco", "silicon valley", "new york", "london", "berlin",
-    "paris", "singapore", "toronto",
+    "bengaluru",
+    "bangalore",
+    "hyderabad",
+    "gurgaon",
+    "gurugram",
+    "pune",
+    "san francisco",
+    "silicon valley",
+    "new york",
+    "london",
+    "berlin",
+    "paris",
+    "singapore",
+    "toronto",
 ]
 
 
@@ -156,6 +188,7 @@ def score_lead(company_row: dict, role: str, confidence: int = 90) -> int:
 
     # +2 if role is recruiter or engineering manager
     from contact_finder import RECRUITER_KEYWORDS, EM_KEYWORDS
+
     if any(k in role_lower for k in RECRUITER_KEYWORDS):
         score += 2
     elif any(k in role_lower for k in EM_KEYWORDS):
@@ -164,8 +197,16 @@ def score_lead(company_row: dict, role: str, confidence: int = 90) -> int:
         score += 1
 
     # -2 if role is clearly irrelevant
-    irrelevant = ["sustainability", "communications", "go-to-market", "gtm",
-                  "real estate", "credit risk", "creative director", "trust and safety"]
+    irrelevant = [
+        "sustainability",
+        "communications",
+        "go-to-market",
+        "gtm",
+        "real estate",
+        "credit risk",
+        "creative director",
+        "trust and safety",
+    ]
     if any(k in role_lower for k in irrelevant):
         score -= 2
 
@@ -195,7 +236,10 @@ def generate_outreach_email(
     Generate subject + body + personalization_reason + quality_score in a single Gemini call.
     Returns dict with keys: subject, body, personalization_reason, quality_score.
     """
-    is_em = any(x in role.lower() for x in ["manager", "lead", "director", "head", "vp", "principal", "cto"])
+    is_em = any(
+        x in role.lower()
+        for x in ["manager", "lead", "director", "head", "vp", "principal", "cto"]
+    )
     email_type = "engineering_manager" if is_em else "recruiter"
 
     prompt = f"""You are writing a cold job-search email for {YOUR_NAME}.
@@ -377,9 +421,13 @@ class OutreachAgent:
                             classification["reply_type"],
                             classification["suggested_response"],
                         )
-                        log.info(f"Reply from {email} classified as: {classification['reply_type']}")
+                        log.info(
+                            f"Reply from {email} classified as: {classification['reply_type']}"
+                        )
                     except QuotaExhaustedError:
-                        log.warning("Gemini quota exhausted during reply classification. Skipping classification.")
+                        log.warning(
+                            "Gemini quota exhausted during reply classification. Skipping classification."
+                        )
                     except Exception as e:
                         log.warning(f"Reply classification failed for {email}: {e}")
 
@@ -414,12 +462,14 @@ class OutreachAgent:
         sent = 0
         quota_hits = 0
         for row in contacts:
-            if (row.get("Status") == "Sent"
-                    and row.get("Replied?", "").lower() != "yes"
-                    and row.get("Follow-up Sent?", "").lower() != "yes"
-                    and row.get("Do Not Contact", "").lower() != "yes"
-                    and row.get("Date Sent")):
-                    
+            if (
+                row.get("Status") == "Sent"
+                and row.get("Replied?", "").lower() != "yes"
+                and row.get("Follow-up Sent?", "").lower() != "yes"
+                and row.get("Do Not Contact", "").lower() != "yes"
+                and row.get("Date Sent")
+            ):
+
                 try:
                     sent_date = date.fromisoformat(str(row["Date Sent"]))
                     days_since = (date.today() - sent_date).days
@@ -429,23 +479,37 @@ class OutreachAgent:
                         subject = f"Re: {row.get('Subject', 'Following up')}"
                         self.mailer.send(row["Email"], subject, body)
                         self.sheets.update_followup_sent(row["_row_index"], today)
-                        log.info(f"Follow-up sent -> {row['First Name']} {row['Last Name']} @ {row['Company']}")
+                        log.info(
+                            f"Follow-up sent -> {row['First Name']} {row['Last Name']} @ {row['Company']}"
+                        )
                         sent += 1
                         quota_hits = 0
                         time.sleep(2)
                 except QuotaExhaustedError as e:
                     quota_hits += 1
-                    log.warning(f"Quota exhausted while sending followups. Strike {quota_hits}/3.")
+                    log.warning(
+                        f"Quota exhausted while sending followups. Strike {quota_hits}/3."
+                    )
                     if quota_hits >= 3:
-                        log.error("Quota exhausted 3 times. Aborting follow-ups for today.")
+                        log.error(
+                            "Quota exhausted 3 times. Aborting follow-ups for today."
+                        )
                         return
                 except Exception as e:
                     err_str = str(e).lower()
-                    if "quota" in err_str or "rate limit" in err_str or "429" in err_str:
+                    if (
+                        "quota" in err_str
+                        or "rate limit" in err_str
+                        or "429" in err_str
+                    ):
                         quota_hits += 1
-                        log.warning(f"Quota exhausted (Mail/Other). Strike {quota_hits}/3.")
+                        log.warning(
+                            f"Quota exhausted (Mail/Other). Strike {quota_hits}/3."
+                        )
                         if quota_hits >= 3:
-                            log.error("Quota exhausted 3 times. Aborting follow-ups for today.")
+                            log.error(
+                                "Quota exhausted 3 times. Aborting follow-ups for today."
+                            )
                             return
                     log.error(f"Follow-up failed for row {row.get('_row_index')}: {e}")
         log.info(f"Follow-ups sent: {sent}")
@@ -453,11 +517,14 @@ class OutreachAgent:
     def _send_new_outreach(self, today: str, daily_limit: int):
         companies = self.sheets.get_company_rows()
         outreach_rows = self.sheets.get_outreach_rows()
-        already_contacted = {r["Email"].lower() for r in outreach_rows if r.get("Email")}
+        already_contacted = {
+            r["Email"].lower() for r in outreach_rows if r.get("Email")
+        }
 
         # Build Do Not Contact set
         do_not_contact = {
-            r["Email"].lower() for r in outreach_rows
+            r["Email"].lower()
+            for r in outreach_rows
             if r.get("Do Not Contact", "").lower() == "yes"
         }
 
@@ -502,14 +569,15 @@ class OutreachAgent:
                 # ── Lead scoring gate ──
                 lead_score = score_lead(company_row, role, confidence)
                 if lead_score < MIN_LEAD_SCORE:
-                    log.info(f"Skipping {full_name} @ {company} — lead score {lead_score} < {MIN_LEAD_SCORE}")
+                    log.info(
+                        f"Skipping {full_name} @ {company} — lead score {lead_score} < {MIN_LEAD_SCORE}"
+                    )
                     continue
 
                 try:
                     # Single Gemini call for hook + subject + body
                     email_data = generate_outreach_email(
-                        first_name, role, company,
-                        company_row.get("Why Target", "")
+                        first_name, role, company, company_row.get("Why Target", "")
                     )
 
                     subject = email_data["subject"]
@@ -519,49 +587,71 @@ class OutreachAgent:
 
                     # ── Quality gate ──
                     if quality_score < 5:
-                        log.info(f"Skipping {full_name} @ {company} — Gemini quality_score {quality_score} < 5")
+                        log.info(
+                            f"Skipping {full_name} @ {company} — Gemini quality_score {quality_score} < 5"
+                        )
                         continue
 
                     self.mailer.send(email, subject, body)
 
-                    self.sheets.append_outreach_row({
-                        "First Name": first_name,
-                        "Last Name": " ".join(full_name.split()[1:]) if len(full_name.split()) > 1 else "",
-                        "Company": company,
-                        "Role / Title": role,
-                        "Email": email,
-                        "Hook": hook,
-                        "Subject": subject,
-                        "Status": "Sent",
-                        "Date Sent": today,
-                        "Opened?": "No",
-                        "Replied?": "No",
-                        "Follow-up Sent?": "No",
-                        "Outcome": "Awaiting reply",
-                        "Notes": f"Auto-sent on {today} | Score: {lead_score} | Quality: {quality_score}",
-                        "Lead Score": str(lead_score),
-                    })
+                    self.sheets.append_outreach_row(
+                        {
+                            "First Name": first_name,
+                            "Last Name": (
+                                " ".join(full_name.split()[1:])
+                                if len(full_name.split()) > 1
+                                else ""
+                            ),
+                            "Company": company,
+                            "Role / Title": role,
+                            "Email": email,
+                            "Hook": hook,
+                            "Subject": subject,
+                            "Status": "Sent",
+                            "Date Sent": today,
+                            "Opened?": "No",
+                            "Replied?": "No",
+                            "Follow-up Sent?": "No",
+                            "Outcome": "Awaiting reply",
+                            "Notes": f"Auto-sent on {today} | Score: {lead_score} | Quality: {quality_score}",
+                            "Lead Score": str(lead_score),
+                        }
+                    )
 
                     self.sheets.update_company_emails_sent(company_row["_row_index"])
                     already_contacted.add(email.lower())
-                    log.info(f"Sent -> {first_name} @ {company} ({role}) [score={lead_score}, quality={quality_score}]")
+                    log.info(
+                        f"Sent -> {first_name} @ {company} ({role}) [score={lead_score}, quality={quality_score}]"
+                    )
                     sent_today += 1
                     quota_hits = 0
                     time.sleep(3)
 
                 except QuotaExhaustedError as e:
                     quota_hits += 1
-                    log.warning(f"Quota exhausted while sending outreach. Strike {quota_hits}/3.")
+                    log.warning(
+                        f"Quota exhausted while sending outreach. Strike {quota_hits}/3."
+                    )
                     if quota_hits >= 3:
-                        log.error("Quota exhausted 3 times. Aborting new outreach for today.")
+                        log.error(
+                            "Quota exhausted 3 times. Aborting new outreach for today."
+                        )
                         return
                 except Exception as e:
                     err_str = str(e).lower()
-                    if "quota" in err_str or "rate limit" in err_str or "429" in err_str:
+                    if (
+                        "quota" in err_str
+                        or "rate limit" in err_str
+                        or "429" in err_str
+                    ):
                         quota_hits += 1
-                        log.warning(f"Quota exhausted (Mail/Other). Strike {quota_hits}/3.")
+                        log.warning(
+                            f"Quota exhausted (Mail/Other). Strike {quota_hits}/3."
+                        )
                         if quota_hits >= 3:
-                            log.error("Quota exhausted 3 times. Aborting new outreach for today.")
+                            log.error(
+                                "Quota exhausted 3 times. Aborting new outreach for today."
+                            )
                             return
                     log.error(f"Failed to send to {full_name} @ {company}: {e}")
 

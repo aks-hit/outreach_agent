@@ -8,6 +8,7 @@ Usage:
 """
 
 from dotenv import load_dotenv
+
 load_dotenv()
 import sys
 import logging
@@ -21,15 +22,12 @@ log = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("scheduler.log"),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.FileHandler("scheduler.log"), logging.StreamHandler()],
 )
 
 START_DATE = datetime.now().date()
-END_DATE   = START_DATE + timedelta(days=30)
-RUN_HOUR   = 18     # 6 PM IST
+END_DATE = START_DATE + timedelta(days=30)
+RUN_HOUR = 18  # 6 PM IST
 RUN_MINUTE = 0
 
 run_count = {"days": 0}
@@ -53,12 +51,16 @@ def daily_job():
     except Exception as e:
         log.error(f"Agent run failed: {e}", exc_info=True)
 
-    log.info(f"=== Day {run_count['days']} done. Next run: tomorrow {RUN_HOUR:02d}:{RUN_MINUTE:02d} IST ===")
+    log.info(
+        f"=== Day {run_count['days']} done. Next run: tomorrow {RUN_HOUR:02d}:{RUN_MINUTE:02d} IST ==="
+    )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run-now", action="store_true", help="Run immediately once (test mode)")
+    parser.add_argument(
+        "--run-now", action="store_true", help="Run immediately once (test mode)"
+    )
     args = parser.parse_args()
 
     if args.run_now:
@@ -72,12 +74,14 @@ if __name__ == "__main__":
         trigger=CronTrigger(hour=RUN_HOUR, minute=RUN_MINUTE),
         id="daily_outreach",
         name="Daily Cold Outreach",
-        misfire_grace_time=3600  # run even if PC was off
+        misfire_grace_time=3600,  # run even if PC was off
     )
 
     log.info(f"Scheduler started. Runs daily at {RUN_HOUR:02d}:{RUN_MINUTE:02d} IST")
     log.info(f"Campaign: {START_DATE} -> {END_DATE} (30 days)")
-    log.info("Keep this terminal open, or use Windows Task Scheduler (see README / setup.bat).")
+    log.info(
+        "Keep this terminal open, or use Windows Task Scheduler (see README / setup.bat)."
+    )
     log.info("Press Ctrl+C to stop.")
 
     try:

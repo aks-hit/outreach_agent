@@ -21,8 +21,8 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
 ]
 
-SENDER_NAME  = os.environ.get("YOUR_NAME", "Akshit Singh")
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "")   # your Gmail
+SENDER_NAME = os.environ.get("YOUR_NAME", "Akshit Singh")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "")  # your Gmail
 
 
 def get_gmail_creds():
@@ -32,19 +32,19 @@ def get_gmail_creds():
     falls through gracefully to a fresh InstalledAppFlow re-auth.
     """
     creds = None
-    
+
     # Use absolute paths so cron jobs don't fail
     base_dir = os.path.dirname(os.path.abspath(__file__))
     creds_dir = os.path.join(base_dir, ".creds")
     os.makedirs(creds_dir, exist_ok=True)
-    
+
     token_path = os.path.join(creds_dir, "token.pickle")
     creds_path = os.path.join(creds_dir, "credentials.json")
-    
+
     if os.path.exists(token_path):
         with open(token_path, "rb") as f:
             creds = pickle.load(f)
-            
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             try:
@@ -52,11 +52,13 @@ def get_gmail_creds():
             except Exception as e:
                 log.warning(f"Token refresh failed ({e}). Re-running OAuth flow...")
                 creds = None
-                
+
         if not creds or not creds.valid:
             if not os.path.exists(creds_path):
-                raise FileNotFoundError(f"Missing {creds_path}. Please place your Google OAuth credentials.json inside the .creds folder.")
-            
+                raise FileNotFoundError(
+                    f"Missing {creds_path}. Please place your Google OAuth credentials.json inside the .creds folder."
+                )
+
             if "PYTHONANYWHERE_SITE" in os.environ:
                 raise RuntimeError(
                     "Headless environment detected (PythonAnywhere). "
@@ -64,13 +66,13 @@ def get_gmail_creds():
                     "Fix: Run this script once on your laptop to generate '.creds/token.pickle', "
                     "then upload that token.pickle file to PythonAnywhere!"
                 )
-                
+
             flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
             creds = flow.run_local_server(port=0)
-            
+
         with open(token_path, "wb") as f:
             pickle.dump(creds, f)
-            
+
     return creds
 
 
@@ -84,15 +86,12 @@ class GmailSender:
             raise ValueError(f"Invalid email: {to}")
 
         msg = MIMEText(body, "html")
-        msg["to"]      = to
-        msg["from"]    = f"{SENDER_NAME} <{SENDER_EMAIL}>"
+        msg["to"] = to
+        msg["from"] = f"{SENDER_NAME} <{SENDER_EMAIL}>"
         msg["subject"] = subject
 
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-        self.service.users().messages().send(
-            userId="me",
-            body={"raw": raw}
-        ).execute()
+        self.service.users().messages().send(userId="me", body={"raw": raw}).execute()
         log.info(f"Email sent -> {to} | Subject: {subject}")
 
     def check_replies(self, known_emails: set | None = None) -> list[dict]:
@@ -106,11 +105,12 @@ class GmailSender:
             [{"email": "person@company.com", "body": "Thanks for reaching out..."}]
         """
         try:
-            results = self.service.users().messages().list(
-                userId="me",
-                labelIds=["INBOX"],
-                q="in:inbox"
-            ).execute()
+            results = (
+                self.service.users()
+                .messages()
+                .list(userId="me", labelIds=["INBOX"], q="in:inbox")
+                .execute()
+            )
         except Exception as e:
             log.error(f"Failed to list inbox messages: {e}")
             return []
@@ -121,14 +121,21 @@ class GmailSender:
 
         for msg_ref in messages[:50]:
             try:
-                msg = self.service.users().messages().get(
-                    userId="me",
-                    id=msg_ref["id"],
-                    format="full",
-                    metadataHeaders=["From", "In-Reply-To", "References"]
-                ).execute()
+                msg = (
+                    self.service.users()
+                    .messages()
+                    .get(
+                        userId="me",
+                        id=msg_ref["id"],
+                        format="full",
+                        metadataHeaders=["From", "In-Reply-To", "References"],
+                    )
+                    .execute()
+                )
 
-                headers = {h["name"].lower(): h["value"] for h in msg["payload"]["headers"]}
+                headers = {
+                    h["name"].lower(): h["value"] for h in msg["payload"]["headers"]
+                }
                 from_header = headers.get("from", "")
                 is_reply = bool(headers.get("in-reply-to") or headers.get("references"))
 
@@ -154,15 +161,21 @@ class GmailSender:
         # Try direct body
         if payload.get("body", {}).get("data"):
             try:
-                return base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="replace")
+                return base64.urlsafe_b64decode(payload["body"]["data"]).decode(
+                    "utf-8", errors="replace"
+                )
             except Exception:
                 pass
 
         # Try parts (multipart messages)
         for part in payload.get("parts", []):
-            if part.get("mimeType") == "text/plain" and part.get("body", {}).get("data"):
+            if part.get("mimeType") == "text/plain" and part.get("body", {}).get(
+                "data"
+            ):
                 try:
-                    return base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="replace")
+                    return base64.urlsafe_b64decode(part["body"]["data"]).decode(
+                        "utf-8", errors="replace"
+                    )
                 except Exception:
                     pass
             # Recurse into nested parts
