@@ -1,11 +1,27 @@
 # Replace the contents of this file with your own professional background.
 # The agent will use this exact text to personalize your outreach emails and determine company fit.
+# Be specific — the more detail you provide, the better the AI can tailor your hooks.
 
-Software Engineer with 3+ years of experience building scalable backend systems.
-Currently at [Your Current Company]:
-- Designed microservices architecture reducing latency by 40%.
-- Integrated third-party APIs handling 1M+ daily requests.
-- Mentored junior developers and led agile sprints.
+# Example profile for a PM / Tech Consulting candidate with an engineering background:
 
-Tech: Python, Go, Docker, Kubernetes, AWS, PostgreSQL
-Targeting: Backend Engineer / Full Stack Engineer roles
+MBA Candidate at IIM Kashipur | AI Engineer | Product Management & Tech Consulting
+Currently targeting: Associate Product Manager (APM), Product Manager, Tech Consulting, and Business Analyst roles.
+
+Background:
+- AI Engineer at [Company] for 11+ months, building and deploying production LLM, RAG, and Agentic AI systems.
+- Reduced LLM inference latency by 70-80% on Azure AI Foundry using PromptFlow and FastAPI.
+- Cut document processing effort by 75% using intelligent automation pipelines.
+- GATE DA 2025 — Top 9% nationally.
+- Built an open-source Autonomous AI Outreach Agent (side project) used to automate personalized cold outreach at scale.
+
+Tech Stack: Python, Azure AI Foundry, PromptFlow, FastAPI, LangChain, LangGraph, Google Cloud APIs, RAG pipelines.
+
+Product Thinking: Strong product instincts built from building and shipping production AI systems — can bridge the gap between technical feasibility and business impact.
+
+Consulting Fit: Analytical rigour, structured problem solving, experience with stakeholder communication, and a deep understanding of AI/ML applications in enterprise contexts.
+
+Targeting:
+- APM / PM roles at product-led tech companies (consumer, fintech, SaaS, AI-native)
+- Tech Strategy / Digital Transformation roles at consulting firms (MBB, Big4, boutiques)
+- Business Analyst roles at top consulting firms
+- VC-backed startups looking for technical PMs or growth leads

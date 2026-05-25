@@ -1,9 +1,8 @@
 """
 lead_generator.py — Autonomous Lead Generation Agent
-Runs daily or on-demand: discovers notable tech startups and AI companies in
-target locations (Bengaluru, Hyderabad, Gurgaon, Pune, and globally via Y Combinator
-batches and global tech hubs), tailors "Why Target" pitches, and appends them
-to the "Company Tracker" Google Sheet.
+Runs daily or on-demand: discovers tech startups, consulting firms, PM programs,
+and VC-backed companies in target locations. Tailors "Why Target" pitches based
+on the user's profile.txt and appends them to the "Company Tracker" Google Sheet.
 """
 
 from dotenv import load_dotenv
@@ -46,23 +45,34 @@ except FileNotFoundError:
     PROFILE_SUMMARY = "Software Engineer looking for roles."
 
 # Default target hubs queue
+# Includes: Tech Cities, YC Batches, Consulting Firms, APM Programs, VC-Backed Startups
 DEFAULT_QUEUE = [
+    # ── Indian Tech Hubs ──
     {"type": "city", "name": "Bengaluru", "country": "India"},
     {"type": "city", "name": "Hyderabad", "country": "India"},
     {"type": "city", "name": "Gurgaon", "country": "India"},
     {"type": "city", "name": "Pune", "country": "India"},
+    {"type": "city", "name": "Mumbai", "country": "India"},
+    # ── Global Tech Hubs ──
+    {"type": "city", "name": "San Francisco / Silicon Valley", "country": "USA"},
+    {"type": "city", "name": "New York", "country": "USA"},
+    {"type": "city", "name": "London", "country": "UK"},
+    {"type": "city", "name": "Singapore", "country": "Singapore"},
+    # ── YC Batches ──
     {"type": "yc_batch", "name": "YC Winter 2024"},
     {"type": "yc_batch", "name": "YC Summer 2023"},
     {"type": "yc_batch", "name": "YC Winter 2023"},
     {"type": "yc_batch", "name": "YC Summer 2022"},
-    {"type": "yc_batch", "name": "YC Winter 2022"},
-    {"type": "city", "name": "San Francisco / Silicon Valley", "country": "USA"},
-    {"type": "city", "name": "New York", "country": "USA"},
-    {"type": "city", "name": "London", "country": "UK"},
-    {"type": "city", "name": "Berlin", "country": "Germany"},
-    {"type": "city", "name": "Paris", "country": "France"},
-    {"type": "city", "name": "Singapore", "country": "Singapore"},
-    {"type": "city", "name": "Toronto", "country": "Canada"},
+    # ── Management Consulting Firms ──
+    {"type": "consulting", "name": "MBB + Big4 Tech Consulting"},
+    {"type": "consulting", "name": "Boutique Tech Strategy Firms India"},
+    # ── APM / PM Programs ──
+    {"type": "pm_programs", "name": "APM Programs India"},
+    {"type": "pm_programs", "name": "PM Programs Global Tech"},
+    # ── VC-Backed Startups ──
+    {"type": "vc_backed", "name": "Series A-B AI Startups India 2024"},
+    {"type": "vc_backed", "name": "Series A-B SaaS Startups India 2024"},
+    {"type": "vc_backed", "name": "Top YC AI Startups 2024"},
 ]
 
 # ── Gemini setup ──────────────────────────────────────────────────────────────
@@ -223,41 +233,108 @@ class LeadGeneratorAgent:
         )
 
     def _discover_companies(self, target: dict) -> list[dict]:
-        """Ask Gemini for 10-15 real active startups/companies in target."""
+        """Ask Gemini for 10-15 real active companies in target."""
+        profile = PROFILE_SUMMARY
+
         if target["type"] == "city":
             prompt = f"""
-Discover 12 real, active tech or AI startups and mid-sized tech companies in {target['name']}, {target['country']}.
-Return a raw JSON array of objects representing the startups. Do not include markdown code block formatting or backticks.
+Discover 12 real, active tech companies, startups, and product-led companies in {target['name']}, {target['country']}.
+Return a raw JSON array. Do not include markdown code block formatting or backticks.
 
-For each startup, provide:
+For each company, provide:
 1. "company": The official name of the company.
-2. "tier": Either "Tier 1" (highly famous/fast-growing) or "Tier 2" (promising mid-sized/startup).
+2. "tier": Either "Tier 1" (well-known/fast-growing) or "Tier 2" (promising mid-sized/startup).
 3. "hq": Exactly "{target['name']}, {target['country']}".
-4. "why_target": Write a highly specific, personalized ONE-sentence hook explaining why an AI Engineer with this profile should target them:
-{PROFILE_SUMMARY}
+4. "why_target": ONE sentence explaining why a candidate with THIS profile should target them — be specific to their product/mission:
+{profile}
 
 Format:
 [
-  {{"company": "ExampleName", "tier": "Tier 1", "hq": "{target['name']}, {target['country']}", "why_target": "Personalized reason targeting their specific AI needs..."}}
+  {{"company": "ExampleName", "tier": "Tier 1", "hq": "{target['name']}, {target['country']}", "why_target": "Specific reason based on their product and the candidate's profile..."}}
 ]
 """
-        else:  # YC Batch
+
+        elif target["type"] == "yc_batch":
             prompt = f"""
-Discover 12 real, active tech or AI startups that were funded in Y Combinator batch '{target['name']}'.
-Return a raw JSON array of objects representing the startups. Do not include markdown code block formatting or backticks.
+Discover 12 real, active startups funded in Y Combinator batch '{target['name']}'.
+Return a raw JSON array. Do not include markdown code block formatting or backticks.
 
 For each startup, provide:
 1. "company": The official name of the company.
 2. "tier": "Tier 1" or "Tier 2".
 3. "hq": The actual HQ location (e.g. San Francisco, USA).
-4. "why_target": Write a highly specific, personalized ONE-sentence hook explaining why an AI Engineer with this profile should target them:
-{PROFILE_SUMMARY}
+4. "why_target": ONE sentence explaining why a candidate with THIS profile should target them:
+{profile}
 
 Format:
 [
-  {{"company": "ExampleName", "tier": "Tier 1", "hq": "HQ Location", "why_target": "Personalized reason targeting their specific AI needs..."}}
+  {{"company": "ExampleName", "tier": "Tier 1", "hq": "HQ Location", "why_target": "Specific reason based on their product and the candidate's profile..."}}
 ]
 """
+
+        elif target["type"] == "consulting":
+            prompt = f"""
+List 12 real management consulting or tech strategy firms matching this category: '{target['name']}'.
+Include both MBB (McKinsey, BCG, Bain), Big4 tech arms (Deloitte Digital, Accenture, EY, KPMG),
+and boutique strategy/product consulting firms.
+Return a raw JSON array. Do not include markdown code block formatting or backticks.
+
+For each firm, provide:
+1. "company": The official name.
+2. "tier": "Tier 1" (MBB/Big4) or "Tier 2" (boutique).
+3. "hq": The primary HQ location.
+4. "why_target": ONE sentence explaining why a candidate with THIS profile should target them — mention their specific practice areas:
+{profile}
+
+Format:
+[
+  {{"company": "ExampleName", "tier": "Tier 1", "hq": "HQ Location", "why_target": "Specific reason..."}}
+]
+"""
+
+        elif target["type"] == "pm_programs":
+            prompt = f"""
+List 12 real companies that have formal Associate Product Manager (APM) or Product Manager programs
+matching this category: '{target['name']}'.
+Include both large tech (Google, Microsoft, Amazon, Flipkart, Razorpay, Swiggy, Zepto)
+and growth-stage startups with structured PM tracks.
+Return a raw JSON array. Do not include markdown code block formatting or backticks.
+
+For each company, provide:
+1. "company": The official name.
+2. "tier": "Tier 1" (large tech) or "Tier 2" (growth startup).
+3. "hq": The primary HQ location.
+4. "why_target": ONE sentence explaining why a candidate with THIS profile is a strong PM fit for this company:
+{profile}
+
+Format:
+[
+  {{"company": "ExampleName", "tier": "Tier 1", "hq": "HQ Location", "why_target": "Specific reason..."}}
+]
+"""
+
+        elif target["type"] == "vc_backed":
+            prompt = f"""
+List 12 real VC-backed startups matching this category: '{target['name']}'.
+Focus on companies that have raised Series A or Series B in the last 2 years and are actively hiring.
+Return a raw JSON array. Do not include markdown code block formatting or backticks.
+
+For each startup, provide:
+1. "company": The official name.
+2. "tier": "Tier 1" (well-known/fast-growing) or "Tier 2" (promising early-stage).
+3. "hq": The primary HQ location.
+4. "why_target": ONE sentence explaining why a candidate with THIS profile should target them:
+{profile}
+
+Format:
+[
+  {{"company": "ExampleName", "tier": "Tier 1", "hq": "HQ Location", "why_target": "Specific reason..."}}
+]
+"""
+
+        else:
+            log.warning(f"Unknown target type: {target['type']}. Skipping.")
+            return []
 
         raw = gemini(prompt)
         # Strip markdown wrappers if any

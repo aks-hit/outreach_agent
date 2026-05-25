@@ -1,14 +1,13 @@
 """
-contact_finder.py — Auto-populates column J ("People Found") in Company Tracker
-using Hunter.io, Apollo.io, and Snov.io APIs in priority order.
-
-Runs as part of the daily agent loop BEFORE outreach, so new companies added
-to the sheet always get contacts discovered overnight — no manual work needed.
+contact_finder.py — Auto-populates column K ("People Found") in Company Tracker
+using Hunter.io, Apollo.io, Snov.io APIs in priority order, with a free
+Gemini-powered fallback for when all paid API quotas are exhausted.
 
 Free tiers:
   Hunter.io  — 25 domain searches/month
   Apollo.io  — 50 exports/month
   Snov.io    — 50 credits/month
+  Gemini     — Free fallback (generates best-guess contacts from public info)
 """
 
 from dotenv import load_dotenv
@@ -18,9 +17,11 @@ load_dotenv()
 import os
 import re
 import time
+import json
 import logging
 import requests
 from typing import Optional
+from google import genai
 
 
 class QuotaExhaustedError(Exception):
@@ -33,6 +34,7 @@ APOLLO_API_KEY = os.environ.get("APOLLO_API_KEY", "")
 SNOV_CLIENT_ID = os.environ.get("SNOV_CLIENT_ID", "")
 SNOV_CLIENT_SECRET = os.environ.get("SNOV_CLIENT_SECRET", "")
 HUNTER_API_KEY = os.environ.get("HUNTER_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 HUNTER_BASE = "https://api.hunter.io/v2"
 
 # Contacts per company to write (user requested at least 5)
@@ -86,23 +88,31 @@ EM_KEYWORDS = [
     "head of ml",
     "director of platform",
     "director of software",
+    # PM / Consulting relevant
+    "chief of staff",
+    "head of product",
+    "vp product",
+    "director of product",
+    "head of strategy",
+    "director of strategy",
+    "managing director",
+    "partner",
+    "associate partner",
+    "principal consultant",
+    "engagement manager",
+    "business analyst",
+    "strategy manager",
+    "head of growth",
+    "vp growth",
 ]
 
-# Roles that are neither — skip these (finance, sales, marketing, etc.)
+# Roles that are clearly irrelevant — skip these
 SKIP_KEYWORDS = [
-    "sales",
-    "marketing",
     "finance",
     "accounting",
     "legal",
     "counsel",
-    "product manager",
-    "product owner",
-    "business development",
-    "customer success",
-    "operations manager",
     "go-to-market",
-    "gtm",
     "sustainability",
     "communications",
     "real estate",
@@ -421,6 +431,59 @@ def find_contacts_hunter(company_name: str, limit: int) -> list[str]:
         return []
 
 
+def find_contacts_gemini_fallback(company_name: str, limit: int) -> list[str]:
+    """
+    Free fallback: Uses Gemini to generate best-guess contacts based on publicly
+    known information. Marks contacts with confidence=50 so the lead scorer
+    applies a discount. Only used when all paid APIs are quota-exhausted.
+    """
+    if not GEMINI_API_KEY:
+        return []
+
+    log.info(f"Gemini Fallback: Generating best-guess contacts for '{company_name}'...")
+    try:
+        gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+        domain = guess_domain(company_name)
+        prompt = f"""You are a research assistant. Based on publicly available information, list up to {limit} real people who work or have worked at '{company_name}' in recruiting, HR, engineering management, product management, or strategy roles.
+
+For each person provide their most likely work email based on the domain '{domain}' and common email patterns (firstname@, firstname.lastname@, etc.).
+
+Return ONLY a raw JSON array. No markdown, no backticks:
+[
+  {{"name": "Full Name", "email": "guess@{domain}", "role": "Job Title", "confidence": 50}}
+]
+
+IMPORTANT:
+- Only include people you are reasonably confident actually work/worked there.
+- Set confidence to 50 for guessed emails, 70 if you are more certain.
+- Return an empty array [] if you don't know anyone at this company."""
+
+        response = gemini_client.models.generate_content(
+            model="gemini-2.0-flash-lite",
+            contents=prompt,
+        )
+        raw = response.text.strip()
+        if raw.startswith("```"):
+            lines = raw.split("\n")
+            lines = [l for l in lines if not l.startswith("```")]
+            raw = "\n".join(lines).strip()
+
+        people = json.loads(raw)
+        contacts = []
+        for p in people[:limit]:
+            name = p.get("name", "").strip()
+            email = p.get("email", "").strip()
+            role = p.get("role", "Unknown Role").strip()
+            confidence = p.get("confidence", 50)
+            if name and email and "@" in email:
+                contacts.append(f"{name}|{email}|{role}|{confidence}")
+                log.info(f"  -> [Gemini] {name} | {email} | {role} (confidence: {confidence})")
+        return contacts
+    except Exception as e:
+        log.warning(f"Gemini fallback failed for '{company_name}': {e}")
+        return []
+
+
 def find_contacts_for_company(
     company_name: str,
     limit: int = MAX_CONTACTS_PER_COMPANY,
@@ -430,6 +493,7 @@ def find_contacts_for_company(
     1. Hunter.io (25 searches/mo)
     2. Apollo.io (50 exports/mo)
     3. Snov.io (50 credits/mo)
+    4. Gemini (free fallback — best-guess contacts from public info)
     """
     # 1. Try Hunter.io
     try:
@@ -456,7 +520,13 @@ def find_contacts_for_company(
             if contacts:
                 return contacts
     except QuotaExhaustedError:
-        raise QuotaExhaustedError("All configured APIs returned QuotaExhaustedError")
+        pass
+
+    # 4. Free Gemini fallback — always available, marks low confidence
+    log.info(f"All paid APIs exhausted for '{company_name}'. Trying free Gemini fallback...")
+    contacts = find_contacts_gemini_fallback(company_name, limit)
+    if contacts:
+        return contacts
 
     return []
 
