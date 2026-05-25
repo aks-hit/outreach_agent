@@ -1,13 +1,15 @@
 """
 contact_finder.py — Auto-populates column K ("People Found") in Company Tracker
-using Hunter.io, Apollo.io, Snov.io APIs in priority order, with a free
-Gemini-powered fallback for when all paid API quotas are exhausted.
+using multiple contact discovery methods in priority order:
 
-Free tiers:
-  Hunter.io  — 25 domain searches/month
-  Apollo.io  — 50 exports/month
-  Snov.io    — 50 credits/month
-  Gemini     — Free fallback (generates best-guess contacts from public info)
+Paid APIs (monthly quota):
+  1. Hunter.io   — 25 domain searches/month
+  2. Apollo.io   — 50 exports/month
+  3. Snov.io     — 50 credits/month
+
+Free methods (daily quota):
+  4. Google Custom Search — 100 queries/day (LinkedIn profile scraping)
+  5. Gemini Fallback      — Unlimited (best-guess from public knowledge)
 """
 
 from dotenv import load_dotenv
@@ -35,6 +37,8 @@ SNOV_CLIENT_ID = os.environ.get("SNOV_CLIENT_ID", "")
 SNOV_CLIENT_SECRET = os.environ.get("SNOV_CLIENT_SECRET", "")
 HUNTER_API_KEY = os.environ.get("HUNTER_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GOOGLE_CSE_API_KEY = os.environ.get("GOOGLE_CSE_API_KEY", "")  # Google Cloud API key
+GOOGLE_CSE_ID = os.environ.get("GOOGLE_CSE_ID", "")            # Programmable Search Engine ID
 HUNTER_BASE = "https://api.hunter.io/v2"
 
 # Contacts per company to write (user requested at least 5)
@@ -433,9 +437,9 @@ def find_contacts_hunter(company_name: str, limit: int) -> list[str]:
 
 def find_contacts_gemini_fallback(company_name: str, limit: int) -> list[str]:
     """
-    Free fallback: Uses Gemini to generate best-guess contacts based on publicly
-    known information. Marks contacts with confidence=50 so the lead scorer
-    applies a discount. Only used when all paid APIs are quota-exhausted.
+    Free fallback (Step 5): Uses Gemini to generate best-guess contacts based on
+    publicly known information. Marks contacts with confidence=50.
+    Only used when all other methods are quota-exhausted.
     """
     if not GEMINI_API_KEY:
         return []
@@ -484,16 +488,139 @@ IMPORTANT:
         return []
 
 
+def find_contacts_google_cse(
+    company_name: str, limit: int
+) -> list[str]:
+    """
+    Free Step 4: Uses Google Custom Search API (100 queries/day) to find
+    LinkedIn profiles for people at the given company. Then uses Gemini to
+    guess their work email based on the company's domain pattern.
+
+    Setup (one-time):
+    1. Go to https://programmablesearchengine.google.com/ and create a new engine.
+    2. In 'Sites to Search', add: linkedin.com/in/*
+    3. Copy the Search Engine ID (cx) -> GOOGLE_CSE_ID in .env
+    4. Go to https://console.cloud.google.com/ -> APIs -> Custom Search API -> Enable
+    5. Create an API Key -> GOOGLE_CSE_API_KEY in .env
+    """
+    if not GOOGLE_CSE_API_KEY or not GOOGLE_CSE_ID:
+        return []
+
+    log.info(f"Google CSE: Searching LinkedIn profiles for '{company_name}'...")
+    domain = guess_domain(company_name)
+    contacts = []
+
+    # Search LinkedIn for people at this company with relevant roles
+    role_terms = '"product manager" OR "recruiter" OR "hr" OR "engineering manager" OR "consultant" OR "strategy" OR "director" OR "head of"'
+    query = f'site:linkedin.com/in "{company_name}" ({role_terms})'
+
+    try:
+        resp = requests.get(
+            "https://www.googleapis.com/customsearch/v1",
+            params={
+                "key": GOOGLE_CSE_API_KEY,
+                "cx": GOOGLE_CSE_ID,
+                "q": query,
+                "num": min(limit * 2, 10),  # Google CSE max is 10 per request
+            },
+            timeout=15,
+        )
+
+        if resp.status_code == 429:
+            log.warning("Google CSE: Daily quota of 100 queries exhausted.")
+            return []
+        if resp.status_code == 400:
+            log.warning("Google CSE: Bad request — check GOOGLE_CSE_ID in .env")
+            return []
+        resp.raise_for_status()
+
+        items = resp.json().get("items", [])
+        if not items:
+            log.info(f"Google CSE: No LinkedIn profiles found for '{company_name}'.")
+            return []
+
+        # Parse names and roles from LinkedIn result titles
+        # LinkedIn titles follow the pattern: "First Last - Job Title - Company | LinkedIn"
+        parsed_people = []
+        for item in items:
+            title = item.get("title", "")
+            snippet = item.get("snippet", "")
+
+            # Parse: "First Last - Role - Company | LinkedIn"
+            parts = [p.strip() for p in title.replace(" | LinkedIn", "").split(" - ")]
+            if len(parts) >= 2:
+                name = parts[0].strip()
+                role = parts[1].strip() if len(parts) > 1 else "Professional"
+                # Validate: name should look like a real name (2+ words)
+                if len(name.split()) >= 2 and _is_relevant(role):
+                    parsed_people.append({"name": name, "role": role})
+                    log.info(f"  -> [CSE] Found: {name} | {role}")
+
+        if not parsed_people:
+            log.info(f"Google CSE: Found results but no relevant roles for '{company_name}'.")
+            return []
+
+        # Use Gemini to guess work emails based on name + domain
+        if not GEMINI_API_KEY:
+            # Without Gemini, just return names without emails (can't send)
+            return []
+
+        gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+        people_list = json.dumps(parsed_people[:limit], indent=2)
+        email_prompt = f"""Given these people who work at '{company_name}' (domain: {domain}):
+{people_list}
+
+For each person, guess their most likely work email using common corporate email patterns:
+- firstname@{domain}
+- firstname.lastname@{domain}
+- f.lastname@{domain}
+- firstnamelastname@{domain}
+
+Return ONLY a raw JSON array. No markdown, no backticks:
+[
+  {{"name": "Full Name", "email": "guessed@{domain}", "role": "Job Title", "confidence": 65}}
+]
+
+Set confidence to 65 (we know they work there from LinkedIn, but email is guessed)."""
+
+        response = gemini_client.models.generate_content(
+            model="gemini-2.0-flash-lite",
+            contents=email_prompt,
+        )
+        raw = response.text.strip()
+        if raw.startswith("```"):
+            lines = raw.split("\n")
+            lines = [l for l in lines if not l.startswith("```")]
+            raw = "\n".join(lines).strip()
+
+        enriched = json.loads(raw)
+        for p in enriched[:limit]:
+            name = p.get("name", "").strip()
+            email = p.get("email", "").strip()
+            role = p.get("role", "Professional").strip()
+            confidence = p.get("confidence", 65)
+            if name and email and "@" in email:
+                contacts.append(f"{name}|{email}|{role}|{confidence}")
+                log.info(f"  -> [CSE+Gemini] {name} | {email} | {role} (confidence: {confidence})")
+
+        return contacts
+
+    except Exception as e:
+        log.warning(f"Google CSE search failed for '{company_name}': {e}")
+        return []
+
+
 def find_contacts_for_company(
     company_name: str,
     limit: int = MAX_CONTACTS_PER_COMPANY,
 ) -> list[str]:
     """
-    Unified entry point. Tries APIs in priority order:
-    1. Hunter.io (25 searches/mo)
-    2. Apollo.io (50 exports/mo)
-    3. Snov.io (50 credits/mo)
-    4. Gemini (free fallback — best-guess contacts from public info)
+    Unified entry point. Tries contact discovery in priority order:
+    1. Hunter.io  (25 searches/mo  — highest quality verified emails)
+    2. Apollo.io  (50 exports/mo   — good quality with roles)
+    3. Snov.io    (50 credits/mo   — decent quality)
+    4. Google CSE (100 queries/day — free, scrapes LinkedIn profiles)
+    5. Gemini     (unlimited       — best-guess from public knowledge)
     """
     # 1. Try Hunter.io
     try:
@@ -522,8 +649,13 @@ def find_contacts_for_company(
     except QuotaExhaustedError:
         pass
 
-    # 4. Free Gemini fallback — always available, marks low confidence
-    log.info(f"All paid APIs exhausted for '{company_name}'. Trying free Gemini fallback...")
+    # 4. Google Custom Search — free, 100 queries/day
+    contacts = find_contacts_google_cse(company_name, limit)
+    if contacts:
+        return contacts
+
+    # 5. Gemini fallback — unlimited, lowest confidence
+    log.info(f"All APIs exhausted for '{company_name}'. Trying Gemini fallback...")
     contacts = find_contacts_gemini_fallback(company_name, limit)
     if contacts:
         return contacts
