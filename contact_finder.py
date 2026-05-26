@@ -462,8 +462,10 @@ IMPORTANT:
 - Set confidence to 50 for guessed emails, 70 if you are more certain.
 - Return an empty array [] if you don't know anyone at this company."""
 
+        # Mandatory sleep to respect the 15 RPM (Requests Per Minute) free tier limit
+        time.sleep(4)
         response = gemini_client.models.generate_content(
-            model="gemini-2.0-flash-lite",
+            model="gemini-3.1-flash-lite",
             contents=prompt,
         )
         raw = response.text.strip()
@@ -583,8 +585,10 @@ Return ONLY a raw JSON array. No markdown, no backticks:
 
 Set confidence to 65 (we know they work there from LinkedIn, but email is guessed)."""
 
+        # Mandatory sleep to respect the 15 RPM free tier limit
+        time.sleep(4)
         response = gemini_client.models.generate_content(
-            model="gemini-2.0-flash-lite",
+            model="gemini-3.1-flash-lite",
             contents=email_prompt,
         )
         raw = response.text.strip()
