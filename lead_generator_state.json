@@ -1,6 +1,66 @@
 {
     "queue": [
         {
+            "type": "alumni_own",
+            "name": "IIM Kashipur",
+            "domain": "PM & Tech Consulting & AI"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "IIM Ahmedabad",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "IIM Bangalore",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "IIM Calcutta",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "IIM Lucknow",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "ISB Hyderabad",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "XLRI Jamshedpur",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "FMS Delhi",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "MDI Gurgaon",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "SPJIMR Mumbai",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "IIM Kozhikode",
+            "domain": "PM & Tech Consulting"
+        },
+        {
+            "type": "alumni_peer",
+            "name": "IIM Indore",
+            "domain": "PM & Tech Consulting"
+        },
+        {
             "type": "city",
             "name": "Bengaluru",
             "country": "India"
@@ -17,28 +77,37 @@
         },
         {
             "type": "city",
+            "name": "Mumbai",
+            "country": "India"
+        },
+        {
+            "type": "city",
             "name": "Pune",
             "country": "India"
         },
         {
-            "type": "yc_batch",
-            "name": "YC Winter 2024"
+            "type": "consulting",
+            "name": "MBB + Big4 Tech Consulting"
         },
         {
-            "type": "yc_batch",
-            "name": "YC Summer 2023"
+            "type": "consulting",
+            "name": "Boutique Tech Strategy Firms India"
         },
         {
-            "type": "yc_batch",
-            "name": "YC Winter 2023"
+            "type": "pm_programs",
+            "name": "APM Programs India"
         },
         {
-            "type": "yc_batch",
-            "name": "YC Summer 2022"
+            "type": "pm_programs",
+            "name": "PM Programs Global Tech"
         },
         {
-            "type": "yc_batch",
-            "name": "YC Winter 2022"
+            "type": "vc_backed",
+            "name": "Series A-B AI Startups India 2024"
+        },
+        {
+            "type": "vc_backed",
+            "name": "Series A-B SaaS Startups India 2024"
         },
         {
             "type": "city",
@@ -47,69 +116,42 @@
         },
         {
             "type": "city",
-            "name": "New York",
-            "country": "USA"
-        },
-        {
-            "type": "city",
-            "name": "London",
-            "country": "UK"
-        },
-        {
-            "type": "city",
-            "name": "Berlin",
-            "country": "Germany"
-        },
-        {
-            "type": "city",
-            "name": "Paris",
-            "country": "France"
-        },
-        {
-            "type": "city",
             "name": "Singapore",
             "country": "Singapore"
-        },
-        {
-            "type": "city",
-            "name": "Toronto",
-            "country": "Canada"
         }
     ],
-    "current_index": 7,
+    "current_index": 6,
     "completed": [
         {
-            "type": "city",
-            "name": "Bengaluru",
-            "country": "India"
+            "type": "alumni_own",
+            "name": "IIM Kashipur",
+            "domain": "PM & Tech Consulting & AI"
         },
         {
-            "type": "city",
-            "name": "Hyderabad",
-            "country": "India"
+            "type": "alumni_peer",
+            "name": "IIM Ahmedabad",
+            "domain": "PM & Tech Consulting"
         },
         {
-            "type": "city",
-            "name": "Gurgaon",
-            "country": "India"
+            "type": "alumni_peer",
+            "name": "IIM Bangalore",
+            "domain": "PM & Tech Consulting"
         },
         {
-            "type": "city",
-            "name": "Pune",
-            "country": "India"
+            "type": "alumni_peer",
+            "name": "IIM Calcutta",
+            "domain": "PM & Tech Consulting"
         },
         {
-            "type": "yc_batch",
-            "name": "YC Winter 2024"
+            "type": "alumni_peer",
+            "name": "IIM Lucknow",
+            "domain": "PM & Tech Consulting"
         },
         {
-            "type": "yc_batch",
-            "name": "YC Summer 2023"
-        },
-        {
-            "type": "yc_batch",
-            "name": "YC Winter 2023"
+            "type": "alumni_peer",
+            "name": "ISB Hyderabad",
+            "domain": "PM & Tech Consulting"
         }
     ],
-    "last_run": "2026-05-25"
+    "last_run": "2026-05-31"
 }

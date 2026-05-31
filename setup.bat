@@ -7,7 +7,7 @@
 ::   3. Validate .env (required keys filled in)
 ::   4. Check Hunter.io key (optional — warns but does not fail)
 ::   5. Check credentials.json exists
-::   6. Register Windows Task Scheduler at 9:30 AM daily
+::   6. Register Windows Task Scheduler at 11:30 AM daily
 :: ============================================================================
 setlocal enabledelayedexpansion
 
@@ -114,10 +114,14 @@ if %errorlevel% equ 0 (
 :: ── Step 5: Check credentials.json ───────────────────────────────────────────
 echo.
 echo [5/6] Checking credentials.json (Google Cloud OAuth)...
-if not exist "credentials.json" (
+set CREDS_FOUND=0
+if exist "credentials.json" set CREDS_FOUND=1
+if exist ".creds\credentials.json" set CREDS_FOUND=1
+
+if !CREDS_FOUND! equ 0 (
     echo   [FAIL] credentials.json not found.
     echo          Google Cloud Console ^> APIs ^& Services ^> Credentials ^> Create OAuth Client ID
-    echo          Application type: Desktop app ^> Download JSON ^> rename to credentials.json
+    echo          Application type: Desktop app ^> Download JSON ^> rename to credentials.json and place in .creds/
     set /a FAIL+=1
 ) else (
     echo   [PASS] credentials.json found.
@@ -126,7 +130,7 @@ if not exist "credentials.json" (
 
 :: ── Step 6: Register Windows Task Scheduler ──────────────────────────────────
 echo.
-echo [6/6] Registering Windows Task Scheduler (daily at 9:30 AM)...
+echo [6/6] Registering Windows Task Scheduler (at User Logon, once a day)...
 
 set TASK_NAME=OutreachAgent
 set SCRIPT_PATH=%~dp0run_agent.bat
@@ -136,8 +140,7 @@ schtasks /delete /tn "%TASK_NAME%" /f >nul 2>&1
 schtasks /create ^
     /tn "%TASK_NAME%" ^
     /tr "\"%SCRIPT_PATH%\"" ^
-    /sc daily ^
-    /st 09:30 ^
+    /sc onlogon ^
     /rl highest ^
     /f ^
     /ru "%USERNAME%" >nul 2>&1
@@ -147,7 +150,7 @@ if %errorlevel% neq 0 (
     echo          Right-click setup.bat ^> Run as administrator and try again.
     set /a FAIL+=1
 ) else (
-    echo   [PASS] Task Scheduler job '%TASK_NAME%' registered — runs daily at 9:30 AM.
+    echo   [PASS] Task Scheduler job '%TASK_NAME%' registered — runs at Windows Logon with once a day lock.
     set /a PASS+=1
 )
 
@@ -174,7 +177,7 @@ if !FAIL! gtr 0 (
     echo    2. python scheduler.py --run-now    ^<-- test run
     echo    3. Check agent.log + Outreach Tracker tab in your Google Sheet
     echo.
-    echo  After that, the agent runs automatically every morning at 9:30 AM.
+    echo  After that, the agent runs automatically whenever you log into Windows - limited to once per day.
     echo  You can close this terminal — Windows Task Scheduler handles it.
     echo.
 )
