@@ -90,14 +90,16 @@ To keep the agent running 24/7 without keeping your laptop open, we recommend de
 
 ```mermaid
 graph TD
+    H[Windows Task Scheduler] -->|Triggers Daily| D[agent.py]
     A[lead_generator.py] -->|Populates| B[(Google Sheet: Company Tracker)]
     C[contact_finder.py] -->|Discovers Emails| B
-    B -->|Reads Leads| D[agent.py]
+    B -->|Reads Leads| D
+    D -->|Calls| I[linkedin_scraper.py]
+    I -->|Scrapes Posts & Auto-Applies| G[(Google Sheet: Outreach Tracker)]
     D -->|Calls| E[Gemini API]
     E -->|Returns Personalized Email| D
     D -->|Sends via| F[Gmail API]
-    F -->|Updates Status| G[(Google Sheet: Outreach Tracker)]
-    H[scheduler.py] -->|Triggers Daily| D
+    F -->|Updates Status & Bounces| G
 ```
 
 ### Core Components
