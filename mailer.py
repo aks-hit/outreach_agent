@@ -185,3 +185,59 @@ class GmailSender:
                     return result
 
         return "(Could not extract reply body)"
+
+    def get_all_sent_emails(self, max_results=200) -> set[str]:
+        """Fetch a set of all email addresses the user has recently sent emails to."""
+        sent_emails = set()
+        try:
+            results = self.service.users().messages().list(userId="me", labelIds=["SENT"], maxResults=max_results).execute()
+            messages = results.get("messages", [])
+            for msg_ref in messages:
+                msg = self.service.users().messages().get(
+                    userId="me", id=msg_ref["id"], format="metadata", metadataHeaders=["To"]
+                ).execute()
+                for h in msg.get("payload", {}).get("headers", []):
+                    if h["name"].lower() == "to":
+                        # Extract email address
+                        match = re.search(r"[\w.+-]+@[\w-]+\.[a-zA-Z]+", h["value"])
+                        if match:
+                            sent_emails.add(match.group(0).lower())
+        except Exception as e:
+            log.warning(f"Failed to fetch sent emails from Gmail: {e}")
+        return sent_emails
+
+    def check_bounces(self) -> list[str]:
+        """Check for Address Not Found / bounced emails from mailer-daemon."""
+        bounced_emails = []
+        try:
+            results = self.service.users().messages().list(
+                userId="me", q="from:mailer-daemon@googlemail.com OR subject:\"Delivery Status Notification (Failure)\"", maxResults=50
+            ).execute()
+            messages = results.get("messages", [])
+            for msg_ref in messages:
+                msg = self.service.users().messages().get(
+                    userId="me", id=msg_ref["id"], format="full"
+                ).execute()
+                body_text = self._extract_body(msg["payload"])
+                
+                # Bounces usually say "Address not found" and then list the email, or "Message not delivered to X"
+                # Looking for standard patterns:
+                matches = re.findall(r"not delivered to ([\w.+-]+@[\w-]+\.[a-zA-Z]+)", body_text, re.IGNORECASE)
+                if not matches:
+                    matches = re.findall(r"Address not found\s*Your message wasn't delivered to ([\w.+-]+@[\w-]+\.[a-zA-Z]+)", body_text, re.IGNORECASE)
+                if not matches:
+                    matches = re.findall(r"The response from the remote server was:\s*(?:550|554).*?([\w.+-]+@[\w-]+\.[a-zA-Z]+)", body_text, re.IGNORECASE)
+                if not matches:
+                    matches = re.findall(r"Failed to deliver to '([\w.+-]+@[\w-]+\.[a-zA-Z]+)'", body_text, re.IGNORECASE)
+                if not matches:
+                    # Generic fallback looking for any email surrounded by asterisks or quotes near failure text
+                    if "delivery to the following recipient failed permanently" in body_text.lower() or "address not found" in body_text.lower():
+                        matches = re.findall(r"[\w.+-]+@[\w-]+\.[a-zA-Z]+", body_text)
+                        # We might pick up our own email, so we will filter later or rely on the fact that we sent to them
+
+                if matches:
+                    bounced_emails.extend([m.lower() for m in matches if m.lower() != SENDER_EMAIL.lower()])
+        except Exception as e:
+            log.error(f"Failed to check bounces: {e}")
+            
+        return list(set(bounced_emails))

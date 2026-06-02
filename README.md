@@ -16,12 +16,13 @@
 
 ## ✨ Features
 
-- 🧠 **Gemini-Powered Personalization:** Auto-generates hooks and email body text perfectly tailored to the recipient's role (Recruiter vs. Engineering Manager) and company.
+- 🧠 **Gemini-Powered Personalization:** Auto-generates hooks and email body text perfectly tailored to the recipient's role (Recruiter vs. Engineering Manager) and company in a single efficient API call.
 - 🎯 **Autonomous Lead Generation:** Sequentially researches startups globally, moving from Indian tech hubs to YC batches to Silicon Valley automatically.
+- 💼 **LinkedIn Auto-Apply & Scraper:** Authenticates via Playwright to scrape the LinkedIn feed, search, and Jobs sections for relevant hiring posts. Autonomously navigates the "Easy Apply" process for entry-level jobs and stores direct links.
 - 🕵️ **Multi-API Contact Discovery:** Waterfall API usage (`Apollo.io` -> `Snov.io` -> `Hunter.io`) to reliably source contact emails for free.
-- ✉️ **Smart Gmail Integration:** Sends emails directly via Gmail API (no SMTP issues), automatically categorizes inbound replies, and stops campaigns for individuals who reply or ask not to be contacted.
+- ✉️ **Smart Gmail Integration & Deduplication:** Sends emails directly via Gmail API. Syncs replies, identifies "Address not found" bounce notifications (automatically clearing them to find new contacts), and strictly deduplicates against your Gmail "Sent" folder so you never double-email a lead.
 - 📊 **Google Sheets CRM Sync:** Acts as a headless CRM, pulling targets from and pushing outcomes directly to your spreadsheet.
-- 🕒 **Zero-Maintenance Scheduling:** Deploys easily to cloud services (like PythonAnywhere) to run reliably every day while you sleep.
+- 🕒 **Zero-Maintenance Scheduling:** Sets up a Windows Task Scheduler job to run automatically when you log in—limited to once per day.
 
 ---
 
@@ -72,19 +73,16 @@ python agent.py
 
 ---
 
-## ☁️ PythonAnywhere Deployment
+## ☁️ PythonAnywhere / Cloud Deployment
 
-To keep the agent running 24/7 without keeping your laptop open, we recommend deploying to PythonAnywhere.
+To keep the agent running 24/7 without keeping your laptop open, we recommend deploying to PythonAnywhere or similar.
 
-1. **Upload Files:** Upload your codebase to PythonAnywhere. **Make sure to upload `.creds/token.pickle` and `.creds/credentials.json` from your laptop**, as you cannot authenticate a browser popup on a headless server.
+1. **Upload Files:** Upload your codebase. **Make sure to upload `.creds/token.pickle` and `.creds/credentials.json` from your laptop**, as you cannot authenticate a browser popup on a headless server.
 2. **Lock Down Security:** Run the provided security script to strictly lock file permissions (`chmod 600`) so no one else on the shared server can read your API keys.
    ```bash
    python secure_init.py
    ```
-3. **Schedule the Task:** Under the **Tasks** tab in PythonAnywhere, schedule a daily task at `12:30` UTC (6:00 PM IST) to run:
-   ```bash
-   /home/yourusername/.virtualenvs/outreach_env/bin/python /home/yourusername/outreach_agent/scheduler.py --run-now
-   ```
+3. **Schedule the Task:** Under the **Tasks** tab in PythonAnywhere, schedule a daily task at `12:30` UTC (6:00 PM IST) to run `agent.py`.
 
 ---
 
@@ -108,10 +106,11 @@ graph TD
 |-----------|-------------|
 | 🤖 `agent.py` | The main brain. Scores leads, calls Gemini for email copy, and dispatches to Mailer. |
 | 🔍 `lead_generator.py` | Autonomous startup researcher. Finds companies and populates your CRM. |
+| 💼 `linkedin_scraper.py` | Headless Playwright scraper that extracts LinkedIn hiring posts and auto-applies to jobs. |
 | 📞 `contact_finder.py` | Orchestrates Apollo, Snov, and Hunter APIs to hunt down verified emails. |
-| 📧 `mailer.py` | Handles Gmail API OAuth flow, message sending, and reply extraction. |
+| 📧 `mailer.py` | Handles Gmail API OAuth flow, message sending, duplicate checking, and bounce extraction. |
 | 📝 `sheets.py` | Robust Google Sheets wrapper with automatic retries and error handling. |
-| ⏱️ `scheduler.py` | Cron-based trigger using `APScheduler` for autonomous daily execution. |
+| ⏱️ `setup.bat` | Registers Windows Task Scheduler to run `run_agent.bat` daily on logon. |
 
 ---
 

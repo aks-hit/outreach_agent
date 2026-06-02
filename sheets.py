@@ -328,4 +328,29 @@ class SheetManager:
                 if reply_type in ("do_not_contact", "rejection"):
                     self._write(f"'{OUTREACH_SHEET}'!W{r['_row_index']}", [["Yes"]])
                 log.info(f"Reply classified for {email}: {reply_type}")
+
+    def update_bounced(self, email: str):
+        """
+        Mark email as bounced in Outreach Tracker and remove it from 
+        the Company Tracker's People Found column to trigger a replacement search.
+        """
+        # 1. Update Outreach Tracker
+        outreach = self.get_outreach_rows()
+        for r in outreach:
+            if r["Email"].lower() == email.lower():
+                # If it's already marked Bounced, skip to avoid redundant writes
+                if "Bounced" not in r["Outcome"]:
+                    self._write(f"'{OUTREACH_SHEET}'!P{r['_row_index']}", [["Bounced - Address not found"]])
+                    self._write(f"'{OUTREACH_SHEET}'!W{r['_row_index']}", [["Yes"]])
+                break
+                
+        # 2. Update Company Tracker (remove from People Found)
+        companies = self.get_company_rows()
+        for c in companies:
+            people_found = c.get("People Found", "")
+            if email.lower() in people_found.lower():
+                lines = people_found.strip().split("\n")
+                new_lines = [line for line in lines if email.lower() not in line.lower()]
+                self.update_people_found(c["_row_index"], "\n".join(new_lines))
+                log.info(f"Removed bounced email {email} from Company Tracker (row {c['_row_index']}).")
                 break

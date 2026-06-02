@@ -37,7 +37,7 @@ if %errorlevel% neq 0 (
 
 :: ── Step 2: Install dependencies ─────────────────────────────────────────────
 echo.
-echo [2/6] Installing Python dependencies from requirements.txt...
+echo [2/7] Installing Python dependencies from requirements.txt...
 pip install -r requirements.txt --quiet
 if %errorlevel% neq 0 (
     echo   [FAIL] pip install failed. Check internet connection or run manually:
@@ -45,6 +45,19 @@ if %errorlevel% neq 0 (
     set /a FAIL+=1
 ) else (
     echo   [PASS] All dependencies installed successfully.
+    set /a PASS+=1
+)
+
+:: ── Step 2b: Install Playwright browser ──────────────────────────────────────
+echo.
+echo [2b/7] Installing Playwright Chromium browser for LinkedIn scraping...
+playwright install chromium >nul 2>&1
+if %errorlevel% neq 0 (
+    echo   [WARN] Playwright browser install failed. LinkedIn scraping will be disabled.
+    echo          Run manually: playwright install chromium
+    set /a WARN+=1
+) else (
+    echo   [PASS] Playwright Chromium browser installed.
     set /a PASS+=1
 )
 
@@ -173,9 +186,8 @@ if !FAIL! gtr 0 (
         echo.
     )
     echo  Next steps:
-    echo    1. python agent.py                  ^<-- first-time Gmail OAuth login
-    echo    2. python scheduler.py --run-now    ^<-- test run
-    echo    3. Check agent.log + Outreach Tracker tab in your Google Sheet
+    echo    1. python agent.py                  ^<-- first-time Gmail OAuth login and test run
+    echo    2. Check agent.log + Outreach Tracker tab in your Google Sheet
     echo.
     echo  After that, the agent runs automatically whenever you log into Windows - limited to once per day.
     echo  You can close this terminal — Windows Task Scheduler handles it.

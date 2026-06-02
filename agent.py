@@ -17,7 +17,7 @@ from typing import Optional
 from google import genai
 from sheets import SheetManager
 from mailer import GmailSender
-from contact_finder import ContactFinder
+from contact_finder import ContactFinder, find_email_for_person
 from lead_generator import LeadGeneratorAgent
 
 
@@ -363,6 +363,9 @@ class OutreachAgent:
         daily_limit = get_daily_limit()
         log.info(f"=== Daily run: {today} | Send limit: {daily_limit} ===")
 
+        # LINKEDIN: Highest-priority lead source — scrape hiring posts
+        self._scrape_linkedin()
+
         # AUTO 0: Check backlog before generating new leads
         companies = self.sheets.get_company_rows()
         backlog = [
@@ -380,6 +383,9 @@ class OutreachAgent:
 
         # AUTO 2: Find contacts for companies that have no contacts yet
         self._find_contacts()
+
+        # AUTO 3: Check for bounced emails and remove them from Tracker
+        self._sync_bounces()
 
         # Phase 1: Send follow-ups for contacts who haven't replied after N days
         self._send_followups(today)
@@ -438,6 +444,118 @@ class OutreachAgent:
             log.info(f"Reply sync complete — {synced} new replies marked in sheet.")
         except Exception as e:
             log.warning(f"Reply sync failed (non-critical, continuing): {e}")
+
+    def _sync_bounces(self):
+        """AUTO 3: Check for bounced emails and remove them."""
+        log.info("Syncing bounces from Gmail...")
+        try:
+            bounced_emails = self.mailer.check_bounces()
+            for b_email in bounced_emails:
+                self.sheets.update_bounced(b_email)
+            log.info(f"Bounce sync complete. {len(bounced_emails)} bounces detected and removed from Tracker.")
+        except Exception as e:
+            log.warning(f"Bounce sync failed (non-critical, continuing): {e}")
+
+    def _scrape_linkedin(self):
+        """LINKEDIN: Scrape hiring posts from LinkedIn feed, search, and jobs."""
+        log.info("Running LinkedIn scraper...")
+        try:
+            from linkedin_scraper import LinkedInScraper, LINKEDIN_ENABLED
+            if not LINKEDIN_ENABLED:
+                log.info("LinkedIn scraping is disabled. Skipping.")
+                return
+
+            scraper = LinkedInScraper()
+            leads = scraper.run_daily_scrape()
+
+            if not leads:
+                log.info("No LinkedIn leads found this run.")
+                return
+
+            # Get existing data for deduplication
+            outreach_rows = self.sheets.get_outreach_rows()
+            already_contacted = {
+                r["Email"].lower() for r in outreach_rows if r.get("Email")
+            }
+            existing_companies = self.sheets.get_company_rows()
+            existing_names = {
+                c["Company"].lower().strip() for c in existing_companies if c.get("Company")
+            }
+
+            added = 0
+            for lead in leads:
+                poster_name = lead.get("poster_name", "").strip()
+                company = lead.get("company", "").strip()
+                email = lead.get("email")
+
+                if not poster_name or not company:
+                    continue
+
+                # Skip if we've already emailed this person
+                if email and email.lower() in already_contacted:
+                    log.info(f"Already contacted {poster_name} @ {company}. Skipping.")
+                    continue
+
+                # If no email from LinkedIn, try to find one via APIs
+                if not email:
+                    log.info(f"No email found on LinkedIn for {poster_name} @ {company}. Trying APIs...")
+                    try:
+                        email = find_email_for_person(poster_name, company)
+                    except Exception as e:
+                        log.warning(f"Email lookup failed for {poster_name}: {e}")
+                        email = None
+
+                if not email:
+                    log.info(f"Could not find email for {poster_name} @ {company}. Skipping.")
+                    continue
+
+                # Check again after email lookup
+                if email.lower() in already_contacted:
+                    log.info(f"Already contacted {email}. Skipping.")
+                    continue
+
+                # Add company to Company Tracker if not already there
+                if company.lower().strip() not in existing_names:
+                    try:
+                        why_target = lead.get("post_text", f"Actively hiring — found via LinkedIn {lead.get('source', '')}")[:500]
+                        if lead.get("post_url"):
+                            if lead.get("auto_applied"):
+                                why_target += f"\n\n[Auto-Applied to Job: {lead['post_url']}]"
+                            else:
+                                why_target += f"\n\n[LinkedIn Job Link (Manual Apply Needed): {lead['post_url']}]"
+                                
+                        next_num = len(existing_companies) + 1
+                        row = [
+                            next_num,
+                            company,
+                            "Tier 2",
+                            "",  # HQ
+                            why_target,
+                            "",  # placeholder
+                            "",  # placeholder
+                            "High",  # Priority — LinkedIn leads are high priority
+                            "Active",  # Status — they are actively hiring
+                            f"{poster_name}|{email}|{lead.get('poster_title', 'Hiring Manager')}|75",
+                            "0",  # Emails Sent
+                        ]
+                        self.sheets._append("'Company Tracker'!A:K", [row])
+                        existing_names.add(company.lower().strip())
+                        existing_companies.append({"Company": company})
+                        log.info(f"Added company '{company}' to tracker from LinkedIn.")
+                    except Exception as e:
+                        log.warning(f"Failed to add company '{company}' to sheet: {e}")
+                else:
+                    # Company exists — update People Found if this is a new contact
+                    log.info(f"Company '{company}' already in tracker. Will process contact via normal pipeline.")
+
+                added += 1
+
+            log.info(f"LinkedIn scraper processed {added} leads.")
+
+        except ImportError:
+            log.info("Playwright not installed. LinkedIn scraping disabled. Run: pip install playwright && playwright install chromium")
+        except Exception as e:
+            log.warning(f"LinkedIn scraping failed (non-critical, continuing): {e}")
 
     def _generate_leads(self):
         """AUTO 0: Discover new startups and add them to the Company Tracker."""
@@ -524,6 +642,11 @@ class OutreachAgent:
         already_contacted = {
             r["Email"].lower() for r in outreach_rows if r.get("Email")
         }
+
+        # Also fetch emails sent directly via Gmail to prevent any duplicate sending
+        log.info("Fetching recent sent emails from Gmail for deduplication...")
+        gmail_sent_emails = self.mailer.get_all_sent_emails()
+        already_contacted = already_contacted.union(gmail_sent_emails)
 
         # Build Do Not Contact set
         do_not_contact = {

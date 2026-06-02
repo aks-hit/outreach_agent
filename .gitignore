@@ -35,3 +35,7 @@ ehthumbs.db
 Thumbs.db
 profile.txt
 knowledge.md
+linkedin_scraped_posts.json
+logs/
+linkedin_profile/
+agent.log
