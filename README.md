@@ -52,19 +52,34 @@ cd outreach_agent
 pip install -r requirements.txt
 ```
 
-### 4. Environment Variables & Profile
-Copy the environment template and fill in your details:
+### 5. Personalize Your Agent (Environment & Profile)
+
+The agent needs to know who you are to write convincing emails on your behalf. You must set up two files:
+
+**A. The Environment Variables (`.env`)**
+Copy the template to create your `.env` file:
 ```bash
 cp .env.example .env
 ```
-Inside `.env`, provide your Google Sheet ID, Gmail address, Gemini API Key, and set your desired `EMAILS_PER_DAY`.
+Open `.env` in any text editor and fill in your details. You **must** provide:
+- `YOUR_NAME`: Your full name (e.g. "Jane Doe")
+- `YOUR_LINKEDIN`: Link to your LinkedIn profile
+- `YOUR_RESUME`: A public link to your resume (e.g. a Google Drive link)
+- `SENDER_EMAIL`: The Gmail address you will use to send emails
+- `SPREADSHEET_ID`: The ID of your Google Sheet from Step 3
+- `GEMINI_API_KEY`: Your Google AI Studio API key
 
-Next, define your professional background for the AI to use:
+**B. Your Professional Profile (`profile.txt`)**
+Copy the profile template:
 ```bash
 cp profile.txt.example profile.txt
 ```
-Open `profile.txt` and replace the contents with your own experience and target roles. Gemini will read this file to personalize every email it drafts.
-### 5. First Run & Authentication
+Open `profile.txt` and write a brief summary of your background. **Gemini reads this file to write the emails.** Include:
+- Your current role and years of experience
+- Key projects, metrics, or achievements you want to highlight
+- The specific roles you are targeting (e.g. "Product Manager", "Backend Engineer")
+Make sure to remove the placeholder text!
+### 6. First Run & Authentication
 Run the agent manually the first time. A browser window will pop up asking you to authenticate your Gmail account.
 ```bash
 python agent.py
