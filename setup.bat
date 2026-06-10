@@ -7,7 +7,7 @@
 ::   3. Validate .env (required keys filled in)
 ::   4. Check Hunter.io key (optional — warns but does not fail)
 ::   5. Check credentials.json exists
-::   6. Register Windows Task Scheduler at 11:30 AM daily
+::   6. Register Windows Task Scheduler at User Logon
 :: ============================================================================
 setlocal enabledelayedexpansion
 

@@ -28,8 +28,8 @@ if %errorlevel% equ 0 (
 :: Delete token.pickle
 echo.
 echo [2/3] Deleting token.pickle (OAuth credentials)...
-if exist "token.pickle" (
-    del /f "token.pickle"
+if exist ".creds\token.pickle" (
+    del /f ".creds\token.pickle"
     echo   Done. token.pickle deleted.
 ) else (
     echo   token.pickle not found (already clean).
