@@ -17,7 +17,7 @@
 ## ✨ Features
 
 - 🧠 **Gemini-Powered Personalization:** Auto-generates hooks and email body text perfectly tailored to the recipient's role (Recruiter vs. Engineering Manager) and company in a single efficient API call.
-- 🎯 **Autonomous Lead Generation:** Sequentially researches startups globally, moving from Indian tech hubs to YC batches to Silicon Valley automatically.
+- 🎯 **Autonomous Lead Generation:** Sequentially researches tech startups globally, moving from Indian tech hubs to YC batches to Silicon Valley automatically.
 - 💼 **LinkedIn Auto-Apply & Scraper:** Authenticates via Playwright to scrape the LinkedIn feed, search, and Jobs sections for relevant hiring posts. Autonomously navigates the "Easy Apply" process for entry-level jobs and stores direct links.
 - 🕵️ **Multi-API Contact Discovery:** Waterfall API usage (`Apollo.io` -> `Snov.io` -> `Hunter.io`) to reliably source contact emails for free.
 - ✉️ **Smart Gmail Integration & Deduplication:** Sends emails directly via Gmail API. Syncs replies, identifies "Address not found" bounce notifications (automatically clearing them to find new contacts), and strictly deduplicates against your Gmail "Sent" folder so you never double-email a lead.

@@ -34,32 +34,6 @@ log = logging.getLogger(__name__)
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
 YOUR_NAME = os.environ.get("YOUR_NAME", "[Your Name]")
-YOUR_COLLEGE = os.environ.get("YOUR_COLLEGE", "IIM Kashipur")  # Your own MBA college
-
-# Top 20 MBA colleges in India for alumni outreach
-TOP_MBA_COLLEGES_INDIA = [
-    "IIM Ahmedabad",
-    "IIM Bangalore",
-    "IIM Calcutta",
-    "IIM Lucknow",
-    "IIM Kozhikode",
-    "IIM Indore",
-    "IIM Shillong",
-    "IIM Rohtak",
-    "IIM Raipur",
-    "IIM Ranchi",
-    "IIM Udaipur",
-    "IIM Trichy",
-    "IIM Kashipur",
-    "IIM Visakhapatnam",
-    "IIM Nagpur",
-    "XLRI Jamshedpur",
-    "FMS Delhi",
-    "MDI Gurgaon",
-    "SPJIMR Mumbai",
-    "ISB Hyderabad",
-]
-
 # Read profile summary from file
 profile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profile.txt")
 try:
@@ -70,25 +44,8 @@ except FileNotFoundError:
     PROFILE_SUMMARY = "Software Engineer looking for roles."
 
 # Default target hubs queue
-# Order = Priority: Own alumni first, then top MBA peers, then cities, then domain-specific
+# Order = Priority: Indian Tech Hubs, then domain-specific
 DEFAULT_QUEUE = [
-    # ── Priority 1: Your own college alumni ──
-    # These targets are generated dynamically from YOUR_COLLEGE env var at runtime.
-    # Placeholder — replaced by _build_alumni_queue() at startup.
-    {"type": "alumni_own", "name": YOUR_COLLEGE, "domain": "PM & Tech Consulting & AI"},
-
-    # ── Priority 2: Top MBA college alumni in the same domain ──
-    {"type": "alumni_peer", "name": "IIM Ahmedabad",      "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "IIM Bangalore",      "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "IIM Calcutta",       "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "IIM Lucknow",        "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "ISB Hyderabad",      "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "XLRI Jamshedpur",    "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "FMS Delhi",          "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "MDI Gurgaon",        "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "SPJIMR Mumbai",      "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "IIM Kozhikode",      "domain": "PM & Tech Consulting"},
-    {"type": "alumni_peer", "name": "IIM Indore",         "domain": "PM & Tech Consulting"},
 
     # ── Priority 3: Indian Tech Hubs ──
     {"type": "city", "name": "Bengaluru",  "country": "India"},
@@ -275,41 +232,7 @@ class LeadGeneratorAgent:
         """Ask Gemini for 10-15 real active companies in target."""
         profile = PROFILE_SUMMARY
 
-        if target["type"] in ("alumni_own", "alumni_peer"):
-            college = target["name"]
-            domain = target.get("domain", "Product Management & Tech Consulting")
-            is_own = target["type"] == "alumni_own"
-            priority_note = (
-                "This is the candidate's OWN college — these alumni are the highest priority contacts. "
-                "Emphasize the shared alumni connection warmly."
-                if is_own
-                else f"This is a peer institution. Connect via the shared MBA background."
-            )
-            prompt = f"""
-You are a career advisor helping an MBA student do warm alumni outreach.
-
-{priority_note}
-
-Task: List 12 real professionals who:
-1. Are alumni of "{college}"
-2. Currently work in: {domain}
-3. Hold roles like: Product Manager, Associate PM, Tech Consultant, Strategy Consultant, Business Analyst, Engagement Manager, or similar.
-4. Work at well-known companies (tech, consulting, startups, MNCs).
-
-For each person provide:
-- "company": The company they currently work at.
-- "tier": "Tier 1" (top company like McKinsey, Google, Flipkart) or "Tier 2" (mid-size/startup).
-- "hq": The city/country of the company HQ.
-- "why_target": ONE sentence about why this specific alumni at this company is worth reaching out to, given this candidate profile:
-{profile}
-
-Return ONLY a raw JSON array. No markdown, no backticks:
-[
-  {{"company": "CompanyName", "tier": "Tier 1", "hq": "City, Country", "why_target": "Specific reason...", "alumni_college": "{college}"}}
-]
-"""
-
-        elif target["type"] == "city":
+        if target["type"] == "city":
             prompt = f"""
 Discover 12 real, active tech companies, startups, and product-led companies in {target['name']}, {target['country']}.
 Return a raw JSON array. Do not include markdown code block formatting or backticks.
