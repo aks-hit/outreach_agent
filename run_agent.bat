@@ -1,39 +1,52 @@
 @echo off
-:: run_agent.bat — Used by Windows Task Scheduler to trigger the agent silently.
+REM run_agent.bat — Used by Windows Task Scheduler to trigger the agent silently.
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
-:: Create logs directory if it doesn't exist
+echo =======================================================
+echo Outreach Agent is starting up...
+echo =======================================================
+echo.
+
+REM Create logs directory if it doesn't exist
 if not exist "logs" mkdir logs
 
-:: Get robust date formatted as YYYY-MM-DD (independent of Windows regional format)
+REM Get robust date formatted as YYYY-MM-DD (independent of Windows regional format)
 for /f %%i in ('powershell -Command "Get-Date -Format 'yyyy-MM-dd'"') do set TODAY=%%i
 
-:: Check if we already ran successfully today to prevent duplicate runs
+REM Check if we already ran successfully today to prevent duplicate runs
 if exist logs\last_run_date.txt (
     set /p LAST_RUN=<logs\last_run_date.txt
     if "!LAST_RUN!"=="!TODAY!" (
-        echo [INFO] Outreach Agent already ran today (!TODAY!). Skipping run...
+        echo [INFO] Outreach Agent already ran today !TODAY!. Skipping run...
+        timeout /t 5 >nul
         exit /b 0
     )
 )
 
-:: Load .env variables (skip blank lines and comment lines starting with #)
-for /f "usebackq tokens=1,* delims==" %%A in (`findstr /v "^#" .env`) do (
-    if not "%%A"=="" if not "%%B"=="" (
-        set "%%A=%%B"
-    )
-)
+REM Set Python to UTF-8 mode to handle Unicode characters in logs/emails
+set PYTHONUTF8=1
 
-:: Run the agent and save timestamped log
+REM Run the agent and save timestamped log
 set LOGFILE=logs\run_!TODAY!.log
+
+echo [INFO] The agent is now running.
+echo [INFO] It usually takes 15-30 minutes to discover leads, find contacts, and send emails.
+echo [INFO] You can safely minimize or leave this window open. It will close automatically when finished.
+echo [INFO] DO NOT CLOSE THIS WINDOW manually, or emails will not be sent.
+echo.
+echo [INFO] Logging output to: !LOGFILE!
+echo [INFO] Please wait...
+
 python agent.py >> "!LOGFILE!" 2>&1
 
-:: If python succeeded or ran, update the lock file so we don't run again today
+REM If python succeeded or ran, update the lock file so we don't run again today
 if %errorlevel% equ 0 (
     echo !TODAY!> logs\last_run_date.txt
+    echo [SUCCESS] Agent finished successfully!
 ) else (
-    :: Also write to log that it failed, but let it retry next time
     echo [ERROR] Agent execution failed. Will allow retry on next trigger. >> "!LOGFILE!"
+    echo [ERROR] Agent encountered an error. Check !LOGFILE! for details.
 )
 
+timeout /t 10 >nul

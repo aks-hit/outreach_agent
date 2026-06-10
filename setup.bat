@@ -150,13 +150,8 @@ set SCRIPT_PATH=%~dp0run_agent.bat
 
 schtasks /delete /tn "%TASK_NAME%" /f >nul 2>&1
 
-schtasks /create ^
-    /tn "%TASK_NAME%" ^
-    /tr "\"%SCRIPT_PATH%\"" ^
-    /sc onlogon ^
-    /rl highest ^
-    /f ^
-    /ru "%USERNAME%" >nul 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$action = New-ScheduledTaskAction -Execute '%SCRIPT_PATH%'; $trigger = New-ScheduledTaskTrigger -AtLogon; $trigger.Delay = 'PT1M'; $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries; Register-ScheduledTask -TaskName '%TASK_NAME%' -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force" >nul 2>&1
+
 
 if %errorlevel% neq 0 (
     echo   [FAIL] Could not register Task Scheduler.

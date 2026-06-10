@@ -960,59 +960,81 @@ class LinkedInScraper:
     def scrape_jobs(self) -> list[dict]:
         """
         Browse the LinkedIn Jobs section filtered by role keywords and
-        entry-level experience. Extracts job poster info.
+        entry-level experience. Searches past 24 hours first.
+        If less than 10 leads are found, cascades search to past week.
+        Extracts job poster info.
         Returns a list of lead dicts.
         """
         log.info("=== Scraping LinkedIn Jobs ===")
-        leads = []
 
-        # Search all job keywords (since there are only 4 now, we can search all instead of random.sample)
-        keywords_to_search = JOBS_KEYWORDS
+        def search_for_range(time_range_code: str) -> list[dict]:
+            range_leads = []
+            keywords_to_search = JOBS_KEYWORDS
 
-        for keyword in keywords_to_search:
-            try:
-                encoded = keyword.replace(" ", "%20")
-                # f_E=1,2 = Internship + Entry level; f_AL=true = Easy Apply; f_TPR=r604800 = Past week
-                jobs_url = (
-                    f"https://www.linkedin.com/jobs/search/"
-                    f"?keywords={encoded}&f_E=1%2C2&f_AL=true&f_TPR=r604800&sortBy=DD"
-                )
+            for keyword in keywords_to_search:
+                try:
+                    encoded = keyword.replace(" ", "%20")
+                    # f_E=1,2 = Internship + Entry level; f_AL=true = Easy Apply; sortBy=DD = Date posted
+                    jobs_url = (
+                        f"https://www.linkedin.com/jobs/search/"
+                        f"?keywords={encoded}&f_E=1%2C2&f_AL=true&f_TPR={time_range_code}&sortBy=DD"
+                    )
 
-                log.info(f"Searching jobs: '{keyword}'")
-                _gaussian_delay(mean=4, minimum=3, maximum=6)
-                self.page.goto(jobs_url, wait_until="domcontentloaded")
-                _gaussian_delay(mean=5, minimum=3, maximum=7)
+                    log.info(f"Searching jobs: '{keyword}' for time range {time_range_code}")
+                    _gaussian_delay(mean=4, minimum=3, maximum=6)
+                    self.page.goto(jobs_url, wait_until="domcontentloaded")
+                    _gaussian_delay(mean=5, minimum=3, maximum=7)
 
-                # Extract job cards from the page
-                new_leads = self._extract_jobs_from_page()
-                leads.extend(new_leads)
+                    # Extract job cards from the page
+                    new_leads = self._extract_jobs_from_page()
+                    range_leads.extend(new_leads)
 
-                # Scroll to load more jobs (no hard limit, try up to 40 scrolls/pages)
-                consecutive_empty_scrolls = 0
-                for scroll_num in range(40):
-                    self._human_scroll(distance=random.randint(400, 700))
-                    _gaussian_delay(mean=3, minimum=2, maximum=5)
+                    # Scroll to load more jobs (no hard limit, try up to 40 scrolls/pages)
+                    consecutive_empty_scrolls = 0
+                    for scroll_num in range(40):
+                        self._human_scroll(distance=random.randint(400, 700))
+                        _gaussian_delay(mean=3, minimum=2, maximum=5)
 
-                    more_leads = self._extract_jobs_from_page()
-                    if not more_leads:
-                        consecutive_empty_scrolls += 1
-                        if consecutive_empty_scrolls >= 3:
-                            # Break if we've scrolled 3 times and found no new jobs (end of results)
-                            break
-                    else:
-                        consecutive_empty_scrolls = 0
-                        leads.extend(more_leads)
+                        more_leads = self._extract_jobs_from_page()
+                        if not more_leads:
+                            consecutive_empty_scrolls += 1
+                            if consecutive_empty_scrolls >= 3:
+                                # Break if we've scrolled 3 times and found no new jobs (end of results)
+                                break
+                        else:
+                            consecutive_empty_scrolls = 0
+                            range_leads.extend(more_leads)
 
-                    if random.random() < 0.3:
-                        self._random_mouse_move()
+                        if random.random() < 0.3:
+                            self._random_mouse_move()
 
-                # Pause between different job searches
-                _gaussian_delay(mean=5, minimum=4, maximum=8)
+                    # Pause between different job searches
+                    _gaussian_delay(mean=5, minimum=4, maximum=8)
 
-            except Exception as e:
-                log.warning(f"Jobs scraping error for '{keyword}': {e}")
+                except Exception as e:
+                    log.warning(f"Jobs scraping error for '{keyword}': {e}")
+            return range_leads
 
-        log.info(f"Jobs scraping complete. Found {len(leads)} leads.")
+        # 1. Search last 24 hours (r86400)
+        leads = search_for_range("r86400")
+        log.info(f"Jobs found in the last 24 hours: {len(leads)}")
+
+        # 2. If count is less than 10, cascade search to under a week (r604800)
+        if len(leads) < 10:
+            log.info(f"Count of jobs ({len(leads)}) is less than 10. Cascading to past week...")
+            week_leads = search_for_range("r604800")
+            
+            # Deduplicate week_leads against what we already found in 24 hours
+            seen_urls = {l.get("post_url") for l in leads if l.get("post_url")}
+            for lead in week_leads:
+                url = lead.get("post_url")
+                if url not in seen_urls:
+                    if url:
+                        seen_urls.add(url)
+                    leads.append(lead)
+            
+            log.info(f"After cascading to past week, total leads found: {len(leads)}")
+
         return leads
 
     # ── Post extraction engine ────────────────────────────────────────────────
@@ -1394,20 +1416,7 @@ class LinkedInScraper:
                 log.error("Cannot establish LinkedIn session. Aborting.")
                 return []
 
-            # ── Mode 1: Feed scroll ──
-            if self._posts_scraped_this_session < LINKEDIN_MAX_POSTS:
-                feed_leads = self.scrape_feed()
-                all_leads.extend(feed_leads)
-
-            # ── Mode 2: Search-based ──
-            if self._posts_scraped_this_session < LINKEDIN_MAX_POSTS:
-                _gaussian_delay(mean=5, minimum=4, maximum=8)
-                search_leads = self.scrape_search()
-                all_leads.extend(search_leads)
-
-            # ── Mode 3: Jobs section ──
-            # No limit check for jobs mode, search all
-            _gaussian_delay(mean=5, minimum=4, maximum=8)
+            # ── Jobs section only ──
             jobs_leads = self.scrape_jobs()
             all_leads.extend(jobs_leads)
 

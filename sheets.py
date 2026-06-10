@@ -30,8 +30,8 @@ COL_COMPANY_HQ = 4            # D
 COL_COMPANY_WHY = 5           # E
 COL_COMPANY_PRIORITY = 8      # H
 COL_COMPANY_STATUS = 9        # I
-COL_COMPANY_PEOPLE = 11       # K
-COL_COMPANY_EMAILS_SENT = 12  # L
+COL_COMPANY_PEOPLE = 10       # J
+COL_COMPANY_EMAILS_SENT = 11  # K
 
 # Column indices for Outreach Tracker
 # A:R = original columns, S-W = new v2 columns
@@ -141,41 +141,61 @@ class SheetManager:
             )
 
     def _read(self, range_: str):
-        try:
-            result = (
-                self.sheet.values()
-                .get(spreadsheetId=self.spreadsheet_id, range=range_)
-                .execute()
-            )
-            return result.get("values", [])
-        except Exception as e:
-            self._handle_error(e)
-            raise
+        for attempt in range(3):
+            try:
+                result = (
+                    self.sheet.values()
+                    .get(spreadsheetId=self.spreadsheet_id, range=range_)
+                    .execute()
+                )
+                return result.get("values", [])
+            except Exception as e:
+                self._handle_error(e)
+                if attempt < 2 and ("10054" in str(e) or "connection" in str(e).lower() or "503" in str(e)):
+                    import time
+                    log.warning(f"Google Sheets read error: {e}. Retrying {attempt+1}/3 in 5s...")
+                    time.sleep(5)
+                    continue
+                raise
 
     def _write(self, range_: str, values: list):
-        try:
-            self.sheet.values().update(
-                spreadsheetId=self.spreadsheet_id,
-                range=range_,
-                valueInputOption="USER_ENTERED",
-                body={"values": values},
-            ).execute()
-        except Exception as e:
-            self._handle_error(e)
-            raise
+        for attempt in range(3):
+            try:
+                self.sheet.values().update(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=range_,
+                    valueInputOption="USER_ENTERED",
+                    body={"values": values},
+                ).execute()
+                return
+            except Exception as e:
+                self._handle_error(e)
+                if attempt < 2 and ("10054" in str(e) or "connection" in str(e).lower() or "503" in str(e)):
+                    import time
+                    log.warning(f"Google Sheets write error: {e}. Retrying {attempt+1}/3 in 5s...")
+                    time.sleep(5)
+                    continue
+                raise
 
     def _append(self, range_: str, values: list):
-        try:
-            self.sheet.values().append(
-                spreadsheetId=self.spreadsheet_id,
-                range=range_,
-                valueInputOption="USER_ENTERED",
-                insertDataOption="INSERT_ROWS",
-                body={"values": values},
-            ).execute()
-        except Exception as e:
-            self._handle_error(e)
-            raise
+        for attempt in range(3):
+            try:
+                self.sheet.values().append(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=range_,
+                    valueInputOption="USER_ENTERED",
+                    insertDataOption="INSERT_ROWS",
+                    body={"values": values},
+                ).execute()
+                return
+            except Exception as e:
+                self._handle_error(e)
+                if attempt < 2 and ("10054" in str(e) or "connection" in str(e).lower() or "503" in str(e)):
+                    import time
+                    log.warning(f"Google Sheets append error: {e}. Retrying {attempt+1}/3 in 5s...")
+                    time.sleep(5)
+                    continue
+                raise
 
     def get_company_rows(self) -> list[dict]:
         # Open-ended range — scales to any number of companies
@@ -277,18 +297,18 @@ class SheetManager:
         log.info(f"Follow-up marked sent on row {row_index}")
 
     def update_company_emails_sent(self, row_index: int):
-        data = self._read(f"'{COMPANY_SHEET}'!L{row_index}")
+        data = self._read(f"'{COMPANY_SHEET}'!K{row_index}")
         current = 0
         if data and data[0]:
             try:
                 current = int(data[0][0])
             except ValueError:
                 current = 0
-        self._write(f"'{COMPANY_SHEET}'!L{row_index}", [[current + 1]])
+        self._write(f"'{COMPANY_SHEET}'!K{row_index}", [[current + 1]])
 
     def update_people_found(self, row_index: int, contacts_text: str):
-        """Write auto-discovered contacts to column K ("People Found") of Company Tracker."""
-        self._write(f"'{COMPANY_SHEET}'!K{row_index}", [[contacts_text]])
+        """Write auto-discovered contacts to column J ("People Found") of Company Tracker."""
+        self._write(f"'{COMPANY_SHEET}'!J{row_index}", [[contacts_text]])
         log.info(f"People Found written to row {row_index} in {COMPANY_SHEET}")
 
     def update_opened(self, email: str):

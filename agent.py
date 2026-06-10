@@ -37,12 +37,18 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
 YOUR_NAME = os.environ.get("YOUR_NAME", "[Your Name]")
 YOUR_LINKEDIN = os.environ.get("YOUR_LINKEDIN", "linkedin.com/in/yourprofile")
+if YOUR_LINKEDIN and not YOUR_LINKEDIN.startswith("http"):
+    YOUR_LINKEDIN = "https://" + YOUR_LINKEDIN
+
 EMAILS_PER_DAY = int(os.environ.get("EMAILS_PER_DAY", "10"))
 FOLLOW_UP_DAYS = int(os.environ.get("FOLLOW_UP_DAYS", "5"))
 HUNTER_MAX_SEARCHES = int(os.environ.get("HUNTER_MAX_SEARCHES", "100"))
 MIN_LEAD_SCORE = int(os.environ.get("MIN_LEAD_SCORE", "6"))
 CAMPAIGN_START_DATE = os.environ.get("CAMPAIGN_START_DATE", date.today().isoformat())
+
 YOUR_RESUME = os.environ.get("YOUR_RESUME", "https://your-resume-link-here.com")
+if YOUR_RESUME and not YOUR_RESUME.startswith("http"):
+    YOUR_RESUME = "https://" + YOUR_RESUME
 
 # Read profile summary from file
 profile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profile.txt")
@@ -271,7 +277,7 @@ Rules:
 - Do not list more than 2 technologies.
 - Sound like a junior engineer who has shipped real systems, not a marketer.
 - Sign off with just the first name: Akshit
-- Include a link to the resume below the sign-off formatted as HTML: <br><br><strong>Links:</strong><br><a href="{YOUR_LINKEDIN}">LinkedIn</a> | <a href="{YOUR_RESUME}">Resume</a>
+- Include a professional HTML signature block below the sign-off EXACTLY like this: <br><br>--<br><strong>{YOUR_NAME}</strong><br><a href="{YOUR_LINKEDIN}">LinkedIn</a> | <a href="{YOUR_RESUME}">Resume</a>
 
 Return valid JSON only. No markdown, no backticks:
 {{"subject": "...", "body": "...", "personalization_reason": "...", "quality_score": 1-10}}
@@ -291,7 +297,7 @@ Return valid JSON only. No markdown, no backticks:
         clean_raw = raw.replace("```json", "").replace("```", "").strip()
         return {
             "subject": f"AI Engineer — interested in {company}",
-            "body": clean_raw,
+            "body": clean_raw + f"<br><br>--<br><strong>{YOUR_NAME}</strong><br><a href=\"{YOUR_LINKEDIN}\">LinkedIn</a> | <a href=\"{YOUR_RESUME}\">Resume</a>",
             "personalization_reason": "",
             "quality_score": 5,
         }
@@ -305,8 +311,8 @@ def generate_followup(first_name: str) -> str:
         "<p>Just following up in case my note got buried.</p>"
         "<p>The short version: I've worked on RAG, agentic AI, PromptFlow, and FastAPI systems, "
         "and I'd be grateful for either a pointer to the right hiring contact or one piece of advice.</p>"
-        f"<p>Thanks,<br>{YOUR_NAME}</p>"
-        f"<br><strong>Links:</strong><br><a href='{YOUR_LINKEDIN}'>LinkedIn</a> | <a href='{YOUR_RESUME}'>Resume</a>"
+        f"<p>Thanks,<br>Akshit</p>"
+        f"<br>--<br><strong>{YOUR_NAME}</strong><br><a href='{YOUR_LINKEDIN}'>LinkedIn</a> | <a href='{YOUR_RESUME}'>Resume</a>"
     )
 
 
@@ -531,8 +537,8 @@ class OutreachAgent:
                             "Tier 2",
                             "",  # HQ
                             why_target,
-                            "",  # placeholder
-                            "",  # placeholder
+                            "",  # LinkedIn People Search URL
+                            lead.get("post_url", ""),  # Careers Page / Job Link
                             "High",  # Priority — LinkedIn leads are high priority
                             "Active",  # Status — they are actively hiring
                             f"{poster_name}|{email}|{lead.get('poster_title', 'Hiring Manager')}|75",

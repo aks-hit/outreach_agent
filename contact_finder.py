@@ -667,6 +667,127 @@ def find_contacts_for_company(
     return []
 
 
+def find_email_for_person(
+    full_name: str,
+    company_name: str,
+) -> Optional[str]:
+    """
+    Find the work email for a specific person at a specific company.
+    Used by the LinkedIn scraper when we know the person's name but not their email.
+
+    Tries in priority order:
+    1. Hunter.io email-finder (verified email for a specific person)
+    2. Apollo.io person search by name + company
+    3. Gemini best-guess based on name + domain patterns
+
+    Returns the email address string, or None if not found.
+    """
+    if not full_name or not company_name:
+        return None
+
+    name_parts = full_name.strip().split()
+    first_name = name_parts[0] if name_parts else ""
+    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+    domain = guess_domain(company_name)
+
+    # 1. Hunter.io email-finder (most accurate — returns verified email)
+    if HUNTER_API_KEY:
+        try:
+            log.info(f"Hunter.io email-finder: {full_name} @ {company_name}...")
+            params = {
+                "domain": domain,
+                "first_name": first_name,
+                "last_name": last_name,
+                "api_key": HUNTER_API_KEY,
+            }
+            resp = request_with_retry(
+                "GET", f"{HUNTER_BASE}/email-finder", params=params, timeout=15
+            )
+            resp.raise_for_status()
+            data = resp.json().get("data", {})
+            email = data.get("email")
+            confidence = data.get("confidence", 0)
+            if email and confidence >= 50:
+                log.info(f"  -> [Hunter] Found: {email} (confidence: {confidence})")
+                return email
+        except QuotaExhaustedError:
+            log.warning("Hunter.io: rate limited for person search.")
+        except Exception as e:
+            log.debug(f"Hunter email-finder failed: {e}")
+
+    # 2. Apollo.io person search by name + company
+    if APOLLO_API_KEY:
+        try:
+            log.info(f"Apollo.io person search: {full_name} @ {company_name}...")
+            url = "https://api.apollo.io/v1/mixed_people/search"
+            headers = {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-cache",
+                "X-Api-Key": APOLLO_API_KEY,
+            }
+            payload = {
+                "q_keywords": full_name,
+                "q_organization_names": [company_name],
+                "page": 1,
+                "per_page": 5,
+            }
+            resp = request_with_retry(
+                "POST", url, json=payload, headers=headers, timeout=15
+            )
+            resp.raise_for_status()
+            people = resp.json().get("people", [])
+            for p in people:
+                p_first = (p.get("first_name") or "").lower()
+                p_last = (p.get("last_name") or "").lower()
+                email = p.get("email")
+                if email and (
+                    p_first == first_name.lower() or
+                    p_last == last_name.lower()
+                ):
+                    log.info(f"  -> [Apollo] Found: {email}")
+                    return email
+        except QuotaExhaustedError:
+            log.warning("Apollo.io: rate limited for person search.")
+        except Exception as e:
+            log.debug(f"Apollo person search failed: {e}")
+
+    # 3. Gemini best-guess
+    if GEMINI_API_KEY:
+        try:
+            log.info(f"Gemini email guess: {full_name} @ {company_name} ({domain})...")
+            gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+            prompt = f"""Given this person's name and company, guess their most likely work email.
+
+Name: {full_name}
+Company: {company_name}
+Domain: {domain}
+
+Common corporate email patterns:
+- firstname@{domain}
+- firstname.lastname@{domain}
+- f.lastname@{domain}
+- firstnamelastname@{domain}
+
+Return ONLY the single most likely email address. Nothing else. No explanation."""
+
+            time.sleep(4)  # Respect rate limit
+            response = gemini_client.models.generate_content(
+                model="gemini-3.1-flash-lite",
+                contents=prompt,
+            )
+            raw = response.text.strip()
+            # Validate it looks like an email
+            if "@" in raw and "." in raw.split("@")[-1]:
+                email = raw.strip().lower()
+                log.info(f"  -> [Gemini] Guessed: {email} (confidence: 50)")
+                return email
+        except Exception as e:
+            log.debug(f"Gemini email guess failed: {e}")
+
+    log.info(f"  No email found for {full_name} @ {company_name}")
+    return None
+
+
 class ContactFinder:
     """
     Orchestrates contact discovery for all companies in the sheet that
