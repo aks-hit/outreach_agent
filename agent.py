@@ -248,12 +248,7 @@ def generate_outreach_email(
 Goal: Maximize genuine replies, not clicks or volume.
 
 Sender proof:
-- Junior AI Engineer who has shipped production LLM, RAG, agentic AI, speech, and document intelligence systems
-- AI Engineer, Relay Human Cloud (11+ months)
-- Built agentic AI/RAG systems on Azure AI Foundry, PromptFlow, FastAPI
-- Reduced LLM latency 70-80%
-- Cut document processing effort 75%
-- GATE DA 2025 top 9%
+{PROFILE_SUMMARY}
 
 Recipient:
 Name: {first_name}
@@ -272,11 +267,11 @@ Rules:
 - No exaggerated praise or filler ("I hope you're doing well", "production-grade").
 - No attachment mention.
 - One soft CTA.
-- If recruiter: may ask about open AI/LLM roles.
-- If engineering manager: ask for advice on growing as a junior AI engineer, do NOT ask for a job or explicitly say you're not asking for a job.
-- Do not list more than 2 technologies.
-- Sound like a junior engineer who has shipped real systems, not a marketer.
-- Sign off with just the first name: Akshit
+- If recruiter: may ask about open roles.
+- If engineering manager / product manager: ask for advice on growing, do NOT ask for a job or explicitly say you're not asking for a job.
+- Do not list more than 2 technologies or skills.
+- Sound like an authentic professional, not a marketer.
+- Sign off with just the first name: {YOUR_NAME.split()[0] if YOUR_NAME else '[Your Name]'}
 - Include a professional HTML signature block below the sign-off EXACTLY like this: <br><br>--<br><strong>{YOUR_NAME}</strong><br><a href="{YOUR_LINKEDIN}">LinkedIn</a> | <a href="{YOUR_RESUME}">Resume</a>
 
 Return valid JSON only. No markdown, no backticks:

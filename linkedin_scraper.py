@@ -329,7 +329,7 @@ class LinkedInScraper:
         else:
             # HEADLESS: launch normally, load saved state if available
             self.browser = self.playwright_instance.chromium.launch(
-                headless=False,
+                headless=headless,
                 args=launch_args,
             )
             ctx_opts = {
@@ -1407,9 +1407,9 @@ class LinkedInScraper:
                     log.error("LinkedIn login failed. Aborting scrape.")
                     return []
                 # Re-launch in headless mode with saved session
-                self._launch_browser(headless=False)
+                self._launch_browser(headless=True)
             else:
-                self._launch_browser(headless=False)
+                self._launch_browser(headless=True)
 
             # Verify login is still valid
             if not self._ensure_logged_in():

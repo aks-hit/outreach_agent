@@ -21,7 +21,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
 ]
 
-SENDER_NAME = os.environ.get("YOUR_NAME", "Akshit Singh")
+SENDER_NAME = os.environ.get("YOUR_NAME", "Your Name")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "")  # your Gmail
 
 
