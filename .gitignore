@@ -36,6 +36,7 @@ Thumbs.db
 profile.txt
 knowledge.md
 linkedin_scraped_posts.json
+lead_generator_state.json
 logs/
 linkedin_profile/
 agent.log
