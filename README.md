@@ -80,12 +80,17 @@ Open `profile.txt` and write a brief summary of your background. **Gemini reads 
 - The specific roles you are targeting (e.g. "Product Manager", "Backend Engineer")
 Make sure to remove the placeholder text!
 ### 6. First Run & Authentication
-Run the agent manually the first time. A browser window will pop up asking you to authenticate your Gmail account.
+
+> [!WARNING]
+> **Use a burner/fake LinkedIn account!** LinkedIn aggressively bans accounts for scraping. Do **not** use your primary LinkedIn account to log in. Create a separate account specifically for this agent to avoid losing your network.
+
+Run the agent manually the first time. Two browser windows will pop up sequentially:
+1. First, you will be asked to authenticate your **Gmail account** (this generates `token.pickle` securely on your machine).
+2. Next, a separate browser will open for you to log into your **LinkedIn account**. Once you log in and see the feed, return to the terminal and press Enter to save the session.
+
 ```bash
 python agent.py
 ```
-*This securely generates a `token.pickle` inside your `.creds` folder.*
-
 ---
 
 ## ☁️ PythonAnywhere / Cloud Deployment
